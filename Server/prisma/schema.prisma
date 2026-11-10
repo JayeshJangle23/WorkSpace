@@ -1,0 +1,296 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum TeamMemberRole {
+  MANAGER
+  EMPLOYEE
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  COMPLETED
+  BLOCKED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskReviewStatus {
+  NOT_SUBMITTED
+  PENDING
+  APPROVED
+  CHANGES_REQUESTED
+}
+
+enum ConversationType {
+  DIRECT
+  TEAM
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_UPDATED
+  TASK_COMMENT
+  TASK_DUE_SOON
+  TASK_OVERDUE
+  TASK_REVIEWED
+  MESSAGE
+  TEAM_ADDED
+  SYSTEM
+}
+
+model User {
+  id           String    @id @default(cuid())
+  fullName     String
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(EMPLOYEE)
+  avatarUrl    String?
+  isActive     Boolean   @default(true)
+  lastSeenAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  managedTeams      Team[]               @relation("TeamManager")
+  teamMemberships   TeamMember[]
+  createdTasks      Task[]               @relation("TaskCreator")
+  taskAssignments   TaskAssignment[]
+  assignedTasks     TaskAssignment[]     @relation("TaskAssigner")
+  taskComments      TaskComment[]
+  uploadedFiles     TaskAttachment[]     @relation("AttachmentUploader")
+  sentMessages      Message[]            @relation("MessageSender")
+  conversationLinks ConversationMember[]
+  readReceipts      MessageReadReceipt[]
+  notifications     Notification[]
+  activityLogs      ActivityLog[]        @relation("ActivityActor")
+  reviewedTasks     Task[]               @relation("TaskReviewer")
+
+  @@index([role, isActive])
+  @@index([fullName])
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  managerId   String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  manager  User          @relation("TeamManager", fields: [managerId], references: [id], onDelete: Restrict)
+  members  TeamMember[]
+  tasks    Task[]
+  teamChat Conversation? @relation("TeamConversation")
+
+  @@index([managerId])
+  @@index([isActive])
+}
+
+model TeamMember {
+  id       String         @id @default(cuid())
+  teamId   String
+  userId   String
+  role     TeamMemberRole @default(EMPLOYEE)
+  joinedAt DateTime       @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId])
+}
+
+model Task {
+  id           String           @id @default(cuid())
+  title        String
+  description  String?
+  status       TaskStatus       @default(TODO)
+  priority     TaskPriority     @default(MEDIUM)
+  reviewStatus TaskReviewStatus @default(NOT_SUBMITTED)
+  startDate    DateTime?
+  dueDate      DateTime?
+  completedAt  DateTime?
+  reviewedAt   DateTime?
+  reviewNote   String?
+  teamId       String
+  createdById  String
+  reviewedById String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  team        Team             @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  createdBy   User             @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewedBy  User?            @relation("TaskReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  assignments TaskAssignment[]
+  comments    TaskComment[]
+  attachments TaskAttachment[]
+
+  @@index([teamId, status])
+  @@index([createdById])
+  @@index([dueDate, status])
+  @@index([priority, status])
+  @@index([reviewStatus])
+}
+
+model TaskAssignment {
+  id           String   @id @default(cuid())
+  taskId       String
+  userId       String
+  assignedById String
+  assignedAt   DateTime @default(now())
+
+  task       Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedBy User @relation("TaskAssigner", fields: [assignedById], references: [id], onDelete: Restrict)
+
+  @@unique([taskId, userId])
+  @@index([userId, assignedAt])
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([taskId, createdAt])
+}
+
+model TaskAttachment {
+  id           String   @id @default(cuid())
+  taskId       String
+  uploadedById String
+  fileName     String
+  fileUrl      String
+  mimeType     String?
+  fileSize     Int?
+  createdAt    DateTime @default(now())
+
+  task       Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedBy User @relation("AttachmentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([taskId, createdAt])
+}
+
+model Conversation {
+  id        String           @id @default(cuid())
+  type      ConversationType
+  // Set for a team room; leave null for direct conversations.
+  teamId    String?          @unique
+  title     String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  team     Team?                @relation("TeamConversation", fields: [teamId], references: [id], onDelete: Cascade)
+  members  ConversationMember[]
+  messages Message[]
+
+  @@index([type, updatedAt])
+}
+
+model ConversationMember {
+  id             String    @id @default(cuid())
+  conversationId String
+  userId         String
+  joinedAt       DateTime  @default(now())
+  lastReadAt     DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId, conversationId])
+}
+
+model Message {
+  id             String    @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String
+  createdAt      DateTime  @default(now())
+  editedAt       DateTime?
+  deletedAt      DateTime?
+
+  conversation Conversation         @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User                 @relation("MessageSender", fields: [senderId], references: [id], onDelete: Restrict)
+  readReceipts MessageReadReceipt[]
+
+  @@index([conversationId, createdAt])
+  @@index([senderId, createdAt])
+}
+
+model MessageReadReceipt {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  readAt    DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([userId, readAt])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  data      Json?
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       Json
+  description String?
+  updatedAt   DateTime @updatedAt
+}
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation("ActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
