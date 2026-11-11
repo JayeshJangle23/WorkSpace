@@ -1,132 +1,59 @@
 import { motion } from "framer-motion";
-import {
-  ClipboardList,
-  Circle,
-  Clock,
-  CheckCircle,
-  AlertTriangle,
-  Eye,
-} from "lucide-react";
+import { ClipboardList, Circle, Clock, CheckCircle, AlertTriangle, Eye } from "lucide-react";
+
+const cards = (s) => [
+  { label: "My Tasks", value: s.totalTasks, icon: ClipboardList, color: "#8877EF" },
+  { label: "To Do", value: s.todoTasks, icon: Circle, color: "#E7A43B" },
+  { label: "In Progress", value: s.inProgressTasks, icon: Clock, color: "#3B82F6" },
+  { label: "Completed", value: s.completedTasks, icon: CheckCircle, color: "#20B486" },
+  { label: "Pending Reviews", value: s.pendingReviews, icon: Eye, color: "#A855F7" },
+  { label: "Overdue Tasks", value: s.overdueTasks, icon: AlertTriangle, color: "#EF4444" },
+];
 
 export default function EmployeeDashboard({ data }) {
   const { stats, recentTasks } = data;
 
-  const cards = [
-    {
-      label: "My Tasks",
-      value: stats.totalTasks,
-      icon: ClipboardList,
-      color: "#8877EF",
-    },
-    {
-      label: "To Do",
-      value: stats.todoTasks,
-      icon: Circle,
-      color: "#E7A43B",
-    },
-    {
-      label: "In Progress",
-      value: stats.inProgressTasks,
-      icon: Clock,
-      color: "#3B82F6",
-    },
-    {
-      label: "Completed",
-      value: stats.completedTasks,
-      icon: CheckCircle,
-      color: "#20B486",
-    },
-    {
-      label: "Pending Reviews",
-      value: stats.pendingReviews,
-      icon: Eye,
-      color: "#A855F7",
-    },
-    {
-      label: "Overdue Tasks",
-      value: stats.overdueTasks,
-      icon: AlertTriangle,
-      color: "#EF4444",
-    },
-  ];
-
   return (
-    <div className="page-content">
-      <div className="page-heading">
+    <div className="page-pad flex flex-col gap-6">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <h1>My Dashboard</h1>
-          <p>
-            Track your assigned tasks and work progress.
-          </p>
+          <h1 className="font-heading text-token page-heading-title font-extrabold tracking-tight m-0 mb-1">My Dashboard</h1>
+          <p className="font-body text-muted text-sm m-0">Track your assigned tasks and work progress.</p>
         </div>
-
-        <span className="role-tag">EMPLOYEE</span>
+        <span className="badge badge-role flex-shrink-0">EMPLOYEE</span>
       </div>
 
-      <div className="stats-grid">
-        {cards.map((card, index) => {
-          const Icon = card.icon;
-
-          return (
-            <motion.div
-              key={card.label}
-              className="stat-card"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-            >
-              <div
-                className="stat-icon"
-                style={{ color: card.color }}
-              >
-                <Icon size={23} />
-              </div>
-
-              <p>{card.label}</p>
-              <h2>{card.value ?? 0}</h2>
-            </motion.div>
-          );
-        })}
-      </div>
-
-      <div className="panel">
-        <h3>My Recent Tasks</h3>
-        <p>Tasks assigned to you recently.</p>
-
-        {recentTasks?.length > 0 ? (
-          recentTasks.map((task) => (
-            <div className="recent-row" key={task.id}>
-              <div className="recent-info">
-                <strong>{task.title}</strong>
-
-                <small>
-                  {task.description || "No description"}
-                </small>
-
-                <small>
-                  Team: {task.team?.name || "Not available"}
-                </small>
-
-                {task.dueDate && (
-                  <small>
-                    Due:{" "}
-                    {new Date(task.dueDate).toLocaleDateString()}
-                  </small>
-                )}
-              </div>
-
-              <span className="role-tag">
-                {task.status}
-              </span>
+      <div className="stats-responsive">
+        {cards(stats).map(({ label, value, icon: Icon, color }, i) => (
+          <motion.div key={label} className="card p-5 hover:-translate-y-1 transition-transform"
+            initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+            <div className="w-10 h-10 grid place-items-center rounded-xl mb-3"
+              style={{ background: "var(--accent-soft)", color }}>
+              <Icon size={20} />
             </div>
-          ))
-        ) : (
-          <div className="empty-state">
-            <ClipboardList size={42} />
-            <h3>No tasks assigned yet</h3>
-            <p>
-              Your assigned tasks will appear here.
-            </p>
+            <p className="text-muted text-[11px] font-semibold uppercase tracking-wide m-0 mb-1">{label}</p>
+            <h2 className="font-heading text-token text-3xl font-extrabold m-0 stat-number-mobile">{value ?? 0}</h2>
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="card p-5">
+        <h3 className="text-token text-base font-bold mb-1">My Recent Tasks</h3>
+        <p className="text-muted text-xs mb-4">Tasks assigned to you recently.</p>
+        {recentTasks?.length ? recentTasks.map((task) => (
+          <div key={task.id} className="flex items-center gap-3 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
+            <div className="flex-1 min-w-0">
+              <strong className="block text-token text-xs truncate">{task.title}</strong>
+              <small className="block text-muted text-[11px]">
+                Team: {task.team?.name} · {task.dueDate ? `Due: ${new Date(task.dueDate).toLocaleDateString()}` : ""}
+              </small>
+            </div>
+            <span className="badge badge-role text-[9px]">{task.status}</span>
+          </div>
+        )) : (
+          <div className="flex flex-col items-center gap-3 py-10 text-muted">
+            <ClipboardList size={38} style={{ opacity: .4, color: "var(--accent)" }} />
+            <p className="text-sm m-0">No tasks assigned yet</p>
           </div>
         )}
       </div>

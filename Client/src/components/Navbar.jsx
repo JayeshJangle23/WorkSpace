@@ -1,5 +1,4 @@
-
-import { Sun, Moon, LogOut, Search } from "lucide-react";
+import { Menu, X, Sun, Moon, LogOut, Search } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { useLocation } from "react-router-dom";
@@ -11,32 +10,71 @@ const titles = {
   "/tasks": "Task Management",
   "/messages": "Messages",
   "/notifications": "Notifications",
+  "/settings": "Settings",
 };
 
-export default function Navbar() {
+export default function Navbar({ onMenuClick, mobileOpen }) {
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const location = useLocation();
 
   return (
-    <header className="navbar">
-      <div>
-        <h2>{titles[location.pathname] || "WorkSpace"}</h2>
-        <p>Welcome back, {user?.fullName}</p>
-      </div>
-
-      <div className="navbar-actions">
-        <div className="search-box">
-          <Search size={17} />
-          <span>Workspace</span>
-        </div>
-
-        <button className="icon-button" onClick={toggleTheme}>
-          {theme === "light" ? <Moon /> : <Sun />}
+    <header
+      className="sticky top-0 z-[5] flex items-center justify-between gap-3 px-4 md:px-6 min-h-[64px]"
+      style={{
+        background: "var(--surface)",
+        borderBottom: "1px solid var(--border)",
+        boxShadow: "var(--shadow-sm)",
+      }}
+    >
+      {/* Left — hamburger (mobile) + page title */}
+      <div className="flex items-center gap-3 min-w-0">
+        {/* Hamburger — only on mobile */}
+        <button
+          className="btn-icon md:hidden flex-shrink-0"
+          onClick={onMenuClick}
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+        >
+          {mobileOpen ? <X size={18} /> : <Menu size={18} />}
         </button>
 
-        <button className="icon-button" onClick={logout}>
-          <LogOut />
+        <div className="min-w-0">
+          <h2
+            className="text-token truncate font-bold tracking-tight"
+            style={{ fontFamily: "var(--font-heading)", fontSize: "clamp(14px, 3vw, 18px)" }}
+          >
+            {titles[location.pathname] || "WorkSpace"}
+          </h2>
+          <p
+            className="text-muted text-xs mt-0.5 hidden sm:block truncate"
+            style={{ fontFamily: "var(--font-body)" }}
+          >
+            Welcome back, {user?.fullName}
+          </p>
+        </div>
+      </div>
+
+      {/* Right — search (lg+), theme, logout */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Search pill — desktop only */}
+        <div
+          className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-xl text-muted text-sm"
+          style={{
+            background: "var(--surface-2)",
+            border: "1px solid var(--border)",
+            fontFamily: "var(--font-body)",
+          }}
+        >
+          <Search size={15} />
+          <span>Search…</span>
+        </div>
+
+        <button className="btn-icon" onClick={toggleTheme} title="Toggle theme">
+          {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
+        </button>
+
+        <button className="btn-icon danger" onClick={logout} title="Logout">
+          <LogOut size={18} />
         </button>
       </div>
     </header>
