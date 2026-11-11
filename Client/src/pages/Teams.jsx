@@ -33,13 +33,19 @@ export default function Teams() {
 
   const loadData = async () => {
     try {
-      const [teamRes, userRes] = await Promise.all([
-        api.get("/teams"),
-        api.get("/users"),
-      ]);
+      const requests = [api.get("/teams")];
 
-      setTeams(teamRes.data.teams || []);
-      setUsers(userRes.data.users || []);
+      if (isAdmin || isManager) {
+        requests.push(api.get("/users"));
+      }
+
+      const responses = await Promise.all(requests);
+
+      setTeams(responses[0].data.teams || []);
+
+      if (responses[1]) {
+        setUsers(responses[1].data.users || []);
+      }
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load data");
     }
@@ -59,9 +65,7 @@ export default function Teams() {
     try {
       const res = await api.get(`/teams/${id}`);
       // const team = res.data.teams || res.data.teams?.[0];
-      const team = Array.isArray(res.data.teams)
-        ? res.data.teams[0]
-        : res.data.team;
+      const team = res.data.team;
 
       if (!team) throw new Error("Team not found");
 
@@ -97,7 +101,7 @@ export default function Teams() {
   const viewTeam = async (id) => {
     try {
       const res = await api.get(`/teams/${id}`);
-      setSelected(res.data.teams || res.data.teams?.[0]);
+      setSelected(res.data.team);
       setModal("details");
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load team");

@@ -13,16 +13,11 @@ const allowRoles = require("../middleware/roleMiddleware.js");
 const authMiddleware = require("../middleware/authMiddleware.js");
 
 router.post("/", authMiddleware, allowRoles("ADMIN"), createUser);
-router.get("/", authMiddleware, allowRoles("ADMIN"), getUsers);
-router.get("/:userId", authMiddleware, allowRoles("ADMIN"), getUserById);
+router.get("/", authMiddleware, allowRoles("ADMIN", "MANAGER"), getUsers);
+router.get("/:userId", authMiddleware, allowRoles("ADMIN", "MANAGER"), getUserById);
 router.patch("/:userId", authMiddleware, allowRoles("ADMIN"), editUser);
 router.delete("/:userId", authMiddleware, allowRoles("ADMIN"), deleteUser);
 router.patch("/:userId/role", authMiddleware, allowRoles("ADMIN"), updateRole);
-router.patch(
-  "/:userId/password",
-  authMiddleware,
-  allowRoles("ADMIN"),
-  changeUserPassword,
-);
+router.patch("/:userId/password", authMiddleware, allowRoles("ADMIN"), changeUserPassword);
 
 module.exports = router;

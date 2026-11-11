@@ -25,7 +25,6 @@ import Teams from "./pages/Teams";
 import Tasks from "./pages/Tasks";
 import Messages from "./pages/Messages";
 import Notifications from "./pages/Notifications.jsx";
-import Settings from "./pages/Settings";
 
 function AppLayout() {
   const { user } = useAuth();
@@ -86,7 +85,6 @@ function AppRoutes() {
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/messages" element={<Messages />} />
           <Route path="/notifications" element={<Notifications />} />
-          <Route path="/settings" element={<Settings />} />
         </Route>
       </Route>
 

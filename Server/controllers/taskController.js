@@ -1,4 +1,5 @@
 const prisma = require("../config/db");
+const { logActivity } = require("../utils/activityLogger");
 
 const createTask = async (req, res) => {
   try {
@@ -7,18 +8,19 @@ const createTask = async (req, res) => {
       description,
       startDate,
       dueDate,
-      completedAt,
       teamId,
       priority,
+      assigneeIds,
     } = req.body;
 
     const createdById = req.user.id;
-    console.log(req.user.id)
-    console.log(teamId)
 
     if (!title || !teamId || !createdById) {
-      return res.status(500).json({ message: "Invalid Credentials..." });
+      return res
+        .status(400)
+        .json({ message: "Title and teamId are required" });
     }
+
     const team = await prisma.team.findUnique({
       where: { id: teamId },
     });
@@ -29,25 +31,91 @@ const createTask = async (req, res) => {
       });
     }
 
-    const tasks = await prisma.task.create({
-      data: {
-        title,
-        description,
-        createdById,
-        teamId,
-        priority: priority || "MEDIUM",
-        startDate: startDate ? new Date(startDate) : null,
-        dueDate: dueDate ? new Date(dueDate) : null,
+    if (assigneeIds && assigneeIds.length > 0) {
+      for (const userId of assigneeIds) {
+        const member = await prisma.teamMember.findUnique({
+          where: { teamId_userId: { teamId, userId } },
+        });
+        if (!member) {
+          return res.status(400).json({
+            message: "One or more assignees are not members of this team",
+          });
+        }
+      }
+    }
+
+    const task = await prisma.$transaction(async (tx) => {
+      const newTask = await tx.task.create({
+        data: {
+          title,
+          description,
+          createdById,
+          teamId,
+          priority: priority || "MEDIUM",
+          startDate: startDate ? new Date(startDate) : null,
+          dueDate: dueDate ? new Date(dueDate) : null,
+        },
+      });
+
+      if (assigneeIds && assigneeIds.length > 0) {
+        await tx.taskAssignment.createMany({
+          data: assigneeIds.map((userId) => ({
+            taskId: newTask.id,
+            userId,
+            assignedById: createdById,
+          })),
+        });
+      }
+
+      return newTask;
+    });
+
+    // Fetch the created task with relations
+    const taskWithRelations = await prisma.task.findUnique({
+      where: { id: task.id },
+      include: {
+        team: true,
+        createdBy: {
+          select: { id: true, fullName: true, email: true },
+        },
+        assignments: {
+          include: {
+            user: { select: { id: true, fullName: true, email: true } },
+          },
+        },
       },
     });
 
+    // Log activity + notify assignees
+    await logActivity({
+      actorId: createdById,
+      action: "CREATED_TASK",
+      entityType: "Task",
+      entityId: task.id,
+      metadata: { title, teamId },
+    });
+
+    if (assigneeIds && assigneeIds.length > 0) {
+      await prisma.notification.createMany({
+        data: assigneeIds.map((userId) => ({
+          userId,
+          type: "TASK_ASSIGNED",
+          title: "New Task Assigned",
+          body: `You have been assigned to "${title}"`,
+          data: { taskId: task.id, teamId },
+        })),
+      }).catch((err) => {
+        console.error("Notification error:", err.message);
+      });
+    }
+
     return res.status(201).json({
-      message: "Task Created Successfully",
-      tasks,
+      message: "Task created successfully",
+      task: taskWithRelations,
     });
   } catch (error) {
     return res.status(500).json({
-      message: "Task Creation Failed",
+      message: "Task creation failed",
       error: error.message,
     });
   }
@@ -55,36 +123,42 @@ const createTask = async (req, res) => {
 
 const getTasks = async (req, res) => {
   try {
+    const { id: userId, role } = req.user;
+
+    let where = {};
+
+    if (role === "EMPLOYEE") {
+      where = {
+        assignments: { some: { userId } },
+      };
+    }
+
+    else if (role === "MANAGER") {
+      where = {
+        team: { managerId: userId },
+      };
+    }
+
     const tasks = await prisma.task.findMany({
+      where,
       include: {
         team: true,
         createdBy: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-          },
+          select: { id: true, fullName: true, email: true },
         },
         assignments: {
           include: {
-            user: {
-              select: {
-                id: true,
-                fullName: true,
-                email: true,
-              },
-            },
+            user: { select: { id: true, fullName: true, email: true } },
           },
         },
       },
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: { createdAt: "desc" },
     });
+
     return res.status(200).json({ count: tasks.length, tasks });
   } catch (error) {
     return res.status(500).json({
-      message: "Failed to fetch teams",
+      message: "Failed to fetch tasks",
       error: error.message,
     });
   }
@@ -93,40 +167,31 @@ const getTasks = async (req, res) => {
 const getTaskById = async (req, res) => {
   try {
     const taskId = req.params.taskId;
-    const tasks = await prisma.task.findUnique({
-      where: {
-        id: taskId,
-      },
+
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
       include: {
         team: true,
         createdBy: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-          },
+          select: { id: true, fullName: true, email: true },
         },
         assignments: {
           include: {
-            user: {
-              select: {
-                id: true,
-                fullName: true,
-                email: true,
-              },
-            },
+            user: { select: { id: true, fullName: true, email: true } },
           },
         },
         comments: true,
         attachments: true,
       },
     });
-    if (!tasks) {
+
+    if (!task) {
       return res.status(404).json({
         message: "Task not found",
       });
     }
-    return res.status(200).json({ tasks });
+
+    return res.status(200).json({ task });
   } catch (error) {
     return res.status(500).json({
       message: "Failed to fetch task",
@@ -138,8 +203,16 @@ const getTaskById = async (req, res) => {
 const editTask = async (req, res) => {
   try {
     const taskId = req.params.taskId;
-    const { title, description, startDate, dueDate, priority, teamId } =
-      req.body;
+    const {
+      title,
+      description,
+      startDate,
+      dueDate,
+      priority,
+      teamId,
+      assigneeIds,
+    } = req.body;
+    const assignedById = req.user?.id;
 
     const existingTask = await prisma.task.findUnique({
       where: { id: taskId },
@@ -155,37 +228,91 @@ const editTask = async (req, res) => {
       const team = await prisma.team.findUnique({
         where: { id: teamId },
       });
-
       if (!team) {
-        return res.status(404).json({
-          message: "Team not found",
-        });
+        return res.status(404).json({ message: "Team not found" });
       }
     }
 
     const data = {};
-
     if (title !== undefined) data.title = title;
     if (description !== undefined) data.description = description;
     if (priority !== undefined) data.priority = priority;
     if (teamId !== undefined) data.teamId = teamId;
-
     if (startDate !== undefined) {
       data.startDate = startDate ? new Date(startDate) : null;
     }
-
     if (dueDate !== undefined) {
       data.dueDate = dueDate ? new Date(dueDate) : null;
     }
 
-    const task = await prisma.task.update({
+    await prisma.$transaction(async (tx) => {
+      // Update task fields
+      if (Object.keys(data).length > 0) {
+        await tx.task.update({ where: { id: taskId }, data });
+      }
+
+      // Sync assignments if assigneeIds is provided
+      if (assigneeIds !== undefined) {
+        const currentAssignments = await tx.taskAssignment.findMany({
+          where: { taskId },
+          select: { userId: true },
+        });
+        const currentIds = currentAssignments.map((a) => a.userId);
+        const newIds = assigneeIds.filter((id) => !currentIds.includes(id));
+        const removedIds = currentIds.filter(
+          (id) => !assigneeIds.includes(id),
+        );
+
+        // Validate new assignees are team members
+        const effectiveTeamId = teamId || existingTask.teamId;
+        for (const userId of newIds) {
+          const member = await tx.teamMember.findUnique({
+            where: {
+              teamId_userId: { teamId: effectiveTeamId, userId },
+            },
+          });
+          if (!member) {
+            throw new Error(
+              "One or more assignees are not members of this team",
+            );
+          }
+        }
+
+        if (newIds.length > 0) {
+          await tx.taskAssignment.createMany({
+            data: newIds.map((userId) => ({
+              taskId,
+              userId,
+              assignedById,
+            })),
+          });
+        }
+
+        if (removedIds.length > 0) {
+          await tx.taskAssignment.deleteMany({
+            where: { taskId, userId: { in: removedIds } },
+          });
+        }
+      }
+    });
+
+    // Fetch updated task with relations
+    const updatedTask = await prisma.task.findUnique({
       where: { id: taskId },
-      data,
+      include: {
+        team: true,
+        createdBy: { select: { id: true, fullName: true, email: true } },
+        assignments: {
+          include: {
+            user: { select: { id: true, fullName: true, email: true } },
+          },
+        },
+      },
     });
 
     return res.status(200).json({
       message: "Task updated successfully",
-      task,
+      task: updatedTask,
     });
   } catch (error) {
     return res.status(500).json({
@@ -198,23 +325,23 @@ const editTask = async (req, res) => {
 const deleteTask = async (req, res) => {
   try {
     const taskId = req.params.taskId;
-    const tasks = await prisma.task.findMany({
-      where: {
-        id: taskId,
-      },
+
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
     });
-    if (!tasks) {
-      return res.status(404).json({ message: "Task Not Found..." });
+
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
     }
-    await prisma.task.delete({
-      where: {
-        id: taskId,
-      },
+
+    await prisma.task.delete({ where: { id: taskId } });
+
+    return res.status(200).json({
+      message: "Task deleted successfully",
     });
-    return res.status(200).json({ message: "Task deleted successfully", });
   } catch (error) {
     return res.status(500).json({
-      message: "Failed to fetch tasks",
+      message: "Failed to delete task",
       error: error.message,
     });
   }
@@ -237,26 +364,14 @@ const assignTask = async (req, res) => {
     });
 
     if (!task) {
-      return res.status(404).json({
-        message: "Task not found",
-      });
+      return res.status(404).json({ message: "Task not found" });
     }
 
     const member = await prisma.teamMember.findUnique({
       where: {
-        teamId_userId: {
-          teamId: task.teamId,
-          userId,
-        },
+        teamId_userId: { teamId: task.teamId, userId },
       },
     });
-    console.log("Task Team ID:", task.teamId);
-console.log("Requested User ID:", userId);
-
-const allMembers = await prisma.teamMember.findMany({
-});
-
-console.log("Members found:", allMembers);  
 
     if (!member) {
       return res.status(400).json({
@@ -265,11 +380,7 @@ console.log("Members found:", allMembers);
     }
 
     const assignment = await prisma.taskAssignment.create({
-      data: {
-        taskId,
-        userId,
-        assignedById,
-      },
+      data: { taskId, userId, assignedById },
     });
 
     return res.status(201).json({
@@ -289,12 +400,7 @@ const unassignTask = async (req, res) => {
     const { taskId, userId } = req.params;
 
     const assignment = await prisma.taskAssignment.findUnique({
-      where: {
-        taskId_userId: {
-          taskId,
-          userId,
-        },
-      },
+      where: { taskId_userId: { taskId, userId } },
     });
 
     if (!assignment) {
@@ -304,12 +410,7 @@ const unassignTask = async (req, res) => {
     }
 
     await prisma.taskAssignment.delete({
-      where: {
-        taskId_userId: {
-          taskId,
-          userId,
-        },
-      },
+      where: { taskId_userId: { taskId, userId } },
     });
 
     return res.status(200).json({
@@ -323,7 +424,6 @@ const unassignTask = async (req, res) => {
   }
 };
 
-// UPDATE TASK STATUS
 const updateTaskStatus = async (req, res) => {
   try {
     const { taskId } = req.params;
@@ -349,9 +449,7 @@ const updateTaskStatus = async (req, res) => {
     });
 
     if (!task) {
-      return res.status(404).json({
-        message: "Task not found",
-      });
+      return res.status(404).json({ message: "Task not found" });
     }
 
     const updatedTask = await prisma.task.update({
@@ -367,6 +465,28 @@ const updateTaskStatus = async (req, res) => {
       },
     });
 
+    // Log activity
+    await logActivity({
+      actorId: req.user.id,
+      action: "UPDATED_TASK_STATUS",
+      entityType: "Task",
+      entityId: taskId,
+      metadata: { status },
+    });
+
+    // Notify task creator
+    await prisma.notification.create({
+      data: {
+        userId: task.createdById,
+        type: "TASK_UPDATED",
+        title: "Task Status Updated",
+        body: `"${task.title}" is now ${status.replaceAll("_", " ")}`,
+        data: { taskId, status },
+      },
+    }).catch((err) => {
+      console.error("Notification error:", err.message);
+    });
+
     return res.status(200).json({
       message: "Task status updated successfully",
       task: updatedTask,
@@ -378,7 +498,6 @@ const updateTaskStatus = async (req, res) => {
     });
   }
 };
-
 
 const submitTaskForReview = async (req, res) => {
   try {
@@ -396,9 +515,7 @@ const submitTaskForReview = async (req, res) => {
     });
 
     if (!task) {
-      return res.status(404).json({
-        message: "Task not found",
-      });
+      return res.status(404).json({ message: "Task not found" });
     }
 
     if (task.status !== "IN_PROGRESS") {
@@ -407,23 +524,9 @@ const submitTaskForReview = async (req, res) => {
       });
     }
 
-    // Check task assignment
     const assignment = await prisma.taskAssignment.findFirst({
-      where: {
-        taskId,
-        userId,
-      },
+      where: { taskId, userId },
     });
-    console.log("Task ID:", taskId);
-console.log("Logged-in User ID:", userId);
-
-const allAssignments = await prisma.taskAssignment.findMany({
-  where: {
-    taskId,
-  },
-});
-
-console.log("Task Assignments:", allAssignments);
 
     if (!assignment) {
       return res.status(403).json({
@@ -433,17 +536,42 @@ console.log("Task Assignments:", allAssignments);
 
     const updatedTask = await prisma.task.update({
       where: { id: taskId },
-      data: {
-        status: "IN_REVIEW",
-      },
+      data: { status: "IN_REVIEW" },
     });
+
+    // Log activity
+    await logActivity({
+      actorId: userId,
+      action: "SUBMITTED_TASK_FOR_REVIEW",
+      entityType: "Task",
+      entityId: taskId,
+    });
+
+    // Notify the team manager
+    const team = await prisma.team.findUnique({
+      where: { id: task.teamId },
+      select: { managerId: true, name: true },
+    });
+
+    if (team) {
+      await prisma.notification.create({
+        data: {
+          userId: team.managerId,
+          type: "TASK_UPDATED",
+          title: "Task Submitted for Review",
+          body: `"${task.title}" is ready for review`,
+          data: { taskId, teamId: task.teamId },
+        },
+      }).catch((err) => {
+        console.error("Notification error:", err.message);
+      });
+    }
 
     return res.status(200).json({
       success: true,
       message: "Task submitted for review successfully",
       task: updatedTask,
     });
-
   } catch (error) {
     console.error("Submit task error:", error);
 
@@ -454,19 +582,13 @@ console.log("Task Assignments:", allAssignments);
   }
 };
 
-
-// REVIEW TASK
 const reviewTask = async (req, res) => {
   try {
     const { taskId } = req.params;
     const { reviewStatus, reviewNote } = req.body;
     const reviewedById = req.user?.id;
 
-    
-    const allowedReviews = [
-      "APPROVED",
-      "CHANGES_REQUESTED",
-    ];
+    const allowedReviews = ["APPROVED", "CHANGES_REQUESTED"];
 
     if (!allowedReviews.includes(reviewStatus)) {
       return res.status(400).json({
@@ -480,12 +602,8 @@ const reviewTask = async (req, res) => {
     });
 
     if (!task) {
-      return res.status(404).json({
-        message: "Task not found",
-      });
+      return res.status(404).json({ message: "Task not found" });
     }
-    console.log("Current Task Status:", task.status);
-console.log("Current Review Status:", task.reviewStatus);
 
     if (task.status !== "IN_REVIEW") {
       return res.status(400).json({
@@ -501,16 +619,42 @@ console.log("Current Review Status:", task.reviewStatus);
         reviewedAt: new Date(),
         reviewedById,
         ...(reviewStatus === "APPROVED"
-          ? {
-              status: "COMPLETED",
-              completedAt: new Date(),
-            }
-          : {
-              status: "IN_PROGRESS",
-              completedAt: null,
-            }),
+          ? { status: "COMPLETED", completedAt: new Date() }
+          : { status: "IN_PROGRESS", completedAt: null }),
       },
     });
+
+    // Log activity
+    await logActivity({
+      actorId: reviewedById,
+      action: "REVIEWED_TASK",
+      entityType: "Task",
+      entityId: taskId,
+      metadata: { reviewStatus, reviewNote },
+    });
+
+    // Notify assigned users
+    const assignments = await prisma.taskAssignment.findMany({
+      where: { taskId },
+      select: { userId: true },
+    });
+
+    if (assignments.length > 0) {
+      await prisma.notification.createMany({
+        data: assignments.map((a) => ({
+          userId: a.userId,
+          type: "TASK_REVIEWED",
+          title: "Task Review Result",
+          body:
+            reviewStatus === "APPROVED"
+              ? `"${task.title}" has been approved`
+              : `"${task.title}" needs changes`,
+          data: { taskId, reviewStatus },
+        })),
+      }).catch((err) => {
+        console.error("Notification error:", err.message);
+      });
+    }
 
     return res.status(200).json({
       message: "Task reviewed successfully",
@@ -524,6 +668,106 @@ console.log("Current Review Status:", task.reviewStatus);
   }
 };
 
+
+const getComments = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+
+    const comments = await prisma.taskComment.findMany({
+      where: { taskId },
+      include: {
+        author: {
+          select: { id: true, fullName: true, avatarUrl: true },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    return res.status(200).json({ comments });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Failed to fetch comments", error: error.message });
+  }
+};
+
+const addComment = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { content } = req.body;
+    const authorId = req.user.id;
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ message: "Comment content is required" });
+    }
+
+    const task = await prisma.task.findUnique({ where: { id: taskId } });
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    const comment = await prisma.taskComment.create({
+      data: {
+        taskId,
+        authorId,
+        content: content.trim(),
+      },
+      include: {
+        author: {
+          select: { id: true, fullName: true, avatarUrl: true },
+        },
+      },
+    });
+
+    await logActivity({
+      actorId: authorId,
+      action: "COMMENTED_ON_TASK",
+      entityType: "Task",
+      entityId: taskId,
+      metadata: { commentId: comment.id },
+    });
+
+    return res
+      .status(201)
+      .json({ message: "Comment added successfully", comment });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Failed to add comment", error: error.message });
+  }
+};
+
+const deleteComment = async (req, res) => {
+  try {
+    const { commentId } = req.params;
+    const userId = req.user.id;
+
+    const comment = await prisma.taskComment.findUnique({
+      where: { id: commentId },
+    });
+
+    if (!comment) {
+      return res.status(404).json({ message: "Comment not found" });
+    }
+
+    if (comment.authorId !== userId && req.user.role !== "ADMIN") {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to delete this comment" });
+    }
+
+    await prisma.taskComment.delete({ where: { id: commentId } });
+
+    return res.status(200).json({ message: "Comment deleted successfully" });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Failed to delete comment", error: error.message });
+  }
+};
+
+
+
 module.exports = {
   createTask,
   getTasks,
@@ -534,5 +778,8 @@ module.exports = {
   unassignTask,
   updateTaskStatus,
   reviewTask,
-  submitTaskForReview
+  submitTaskForReview,
+  getComments,
+  addComment,
+  deleteComment,
 };

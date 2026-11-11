@@ -8,7 +8,6 @@ import {
   CheckSquare,
   MessageSquare,
   Bell,
-  Settings,
   Layers,
   PanelLeftClose,
 } from "lucide-react";
@@ -20,7 +19,6 @@ const links = [
   { name: "Tasks", path: "/tasks", icon: CheckSquare },
   { name: "Messages", path: "/messages", icon: MessageSquare },
   { name: "Notifications", path: "/notifications", icon: Bell },
-  { name: "Settings", path: "/settings", icon: Settings },
 ];
 
 export default function Sidebar({ user, collapsed, setCollapsed }) {

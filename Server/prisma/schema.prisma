@@ -42,6 +42,7 @@ enum TaskReviewStatus {
 enum ConversationType {
   DIRECT
   TEAM
+  GROUP
 }
 
 enum NotificationType {

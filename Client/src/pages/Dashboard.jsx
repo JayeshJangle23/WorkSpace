@@ -136,11 +136,73 @@
 // }
 
 
+// import { useEffect, useState } from "react";
+// import api from "../api/axios";
+
+// import AdminDashboard from "./dashboards/AdminDashboard";
+// import ManagerDashboard from "./dashboards/ManagerDashboard.jsx";
+// import EmployeeDashboard from "./dashboards/EmployeeDashboard";
+
+// export default function Dashboard() {
+//   const [data, setData] = useState(null);
+//   const [loading, setLoading] = useState(true);
+//   const [error, setError] = useState("");
+
+//   useEffect(() => {
+//     const loadDashboard = async () => {
+//       try {
+//         const res = await api.get("/dashboard");
+//         setData(res.data);
+//       } catch (err) {
+//         setError(
+//           err.response?.data?.message ||
+//           "Unable to load dashboard"
+//         );
+//       } finally {
+//         setLoading(false);
+//       }
+//     };
+
+//     loadDashboard();
+//   }, []);
+
+//   if (loading) {
+//     return (
+//       <div className="loading-screen">
+//         Loading dashboard...
+//       </div>
+//     );
+//   }
+
+//   if (error) {
+//     return <div className="error-message">{error}</div>;
+//   }
+
+//   if (!data) return null;
+
+//   switch (data.role) {
+//     case "ADMIN":
+//       return <AdminDashboard data={data} />;
+
+//     case "MANAGER":
+//       return <ManagerDashboard data={data} />;
+
+//     case "EMPLOYEE":
+//       return <EmployeeDashboard data={data} />;
+
+//     default:
+//       return <div>Unauthorized role</div>;
+//   }
+// }
+
+
+
 import { useEffect, useState } from "react";
+
 import api from "../api/axios";
 
 import AdminDashboard from "./dashboards/AdminDashboard";
-import ManagerDashboard from "./dashboards/ManagerDashboard.jsx";
+import ManagerDashboard from "./dashboards/ManagerDashboard";
 import EmployeeDashboard from "./dashboards/EmployeeDashboard";
 
 export default function Dashboard() {
@@ -148,21 +210,33 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const loadDashboard = async () => {
-      try {
-        const res = await api.get("/dashboard");
-        setData(res.data);
-      } catch (err) {
-        setError(
-          err.response?.data?.message ||
-          "Unable to load dashboard"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
+  const loadDashboard = async () => {
+    try {
+      setLoading(true);
+      setError("");
 
+      const res = await api.get("/dashboard");
+
+      const dashboardData =
+        res.data.data || res.data;
+
+      if (!dashboardData?.role) {
+        throw new Error("Invalid dashboard response");
+      }
+
+      setData(dashboardData);
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+        err.message ||
+        "Unable to load dashboard"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadDashboard();
   }, []);
 
@@ -175,7 +249,18 @@ export default function Dashboard() {
   }
 
   if (error) {
-    return <div className="error-message">{error}</div>;
+    return (
+      <div className="error-message">
+        {error}
+
+        <button
+          className="primary-button"
+          onClick={loadDashboard}
+        >
+          Retry
+        </button>
+      </div>
+    );
   }
 
   if (!data) return null;
@@ -191,6 +276,10 @@ export default function Dashboard() {
       return <EmployeeDashboard data={data} />;
 
     default:
-      return <div>Unauthorized role</div>;
+      return (
+        <div className="error-message">
+          Unauthorized role
+        </div>
+      );
   }
 }

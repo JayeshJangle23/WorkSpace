@@ -13,11 +13,13 @@ import {
   CalendarDays,
   RefreshCw,
   ListTodo,
+  Eye,
 } from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
 import taskService from "../services/taskService";
 import TaskModal from "../components/tasks/TaskModal.jsx";
+import TaskDetailModal from "../components/tasks/TaskDetailModal.jsx";
 
 const statusColors = {
   TODO: "status-todo",
@@ -63,6 +65,8 @@ export default function Tasks() {
   const [selectedTask, setSelectedTask] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [updatingStatus, setUpdatingStatus] = useState(null);
+  const [detailTaskId, setDetailTaskId] = useState(null);
 
   const canManage =
     user?.role === "ADMIN" || user?.role === "MANAGER";
@@ -83,33 +87,33 @@ export default function Tasks() {
   //   }
   // }, []);
 
-  
-const fetchTasks = useCallback(async () => {
-  try {
-    setLoading(true);
-    setError("");
 
-    const response = await taskService.getTasks();
+  const fetchTasks = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-    // Handle different backend response formats
-    const taskList = Array.isArray(response)
-      ? response
-      : Array.isArray(response?.tasks)
-        ? response.tasks
-        : Array.isArray(response?.data?.tasks)
-          ? response.data.tasks
-          : [];
+      const response = await taskService.getTasks();
 
-    setTasks(taskList);
+      // Handle different backend response formats
+      const taskList = Array.isArray(response)
+        ? response
+        : Array.isArray(response?.tasks)
+          ? response.tasks
+          : Array.isArray(response?.data?.tasks)
+            ? response.data.tasks
+            : [];
 
-  } catch (err) {
-    console.error("Fetch tasks error:", err);
-    setTasks([]);
-    setError(getError(err));
-  } finally {
-    setLoading(false);
-  }
-}, []);
+      setTasks(taskList);
+
+    } catch (err) {
+      console.error("Fetch tasks error:", err);
+      setTasks([]);
+      setError(getError(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
 
   useEffect(() => {
@@ -196,6 +200,18 @@ const fetchTasks = useCallback(async () => {
       window.alert(getError(err));
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleStatusChange = async (taskId, status) => {
+    try {
+      setUpdatingStatus(taskId);
+      await taskService.updateTaskStatus(taskId, status);
+      await fetchTasks();
+    } catch (err) {
+      window.alert(getError(err));
+    } finally {
+      setUpdatingStatus(null);
     }
   };
 
@@ -354,7 +370,7 @@ const fetchTasks = useCallback(async () => {
             <h3>No tasks found</h3>
             <p>
               {search || statusFilter !== "ALL" ||
-              priorityFilter !== "ALL"
+                priorityFilter !== "ALL"
                 ? "Try changing your search or filters."
                 : "Create your first task to get started."}
             </p>
@@ -388,6 +404,14 @@ const fetchTasks = useCallback(async () => {
                     </div>
 
                     <div className="action-buttons">
+                      <button
+                        className="icon-button"
+                        title="View details"
+                        onClick={() => setDetailTaskId(task.id)}
+                      >
+                        <Eye size={15} />
+                      </button>
+
                       {canManage && (
                         <button
                           className="icon-button"
@@ -421,17 +445,15 @@ const fetchTasks = useCallback(async () => {
 
                   <div className="task-badges">
                     <span
-                      className={`task-badge ${
-                        statusColors[task.status] || ""
-                      }`}
+                      className={`task-badge ${statusColors[task.status] || ""
+                        }`}
                     >
                       {(task.status || "TODO").replaceAll("_", " ")}
                     </span>
 
                     <span
-                      className={`task-badge ${
-                        priorityColors[task.priority] || ""
-                      }`}
+                      className={`task-badge ${priorityColors[task.priority] || ""
+                        }`}
                     >
                       {task.priority || "MEDIUM"}
                     </span>
@@ -450,6 +472,41 @@ const fetchTasks = useCallback(async () => {
                       <strong>
                         {task.createdBy?.fullName || "User"}
                       </strong>
+                    </div>
+                  </div>
+
+                  {/* Assigned users */}
+                  {task.assignments && task.assignments.length > 0 && (
+                    <div className="task-details">
+                      <div>
+                        <span>Assigned To</span>
+                        <strong>
+                          {task.assignments
+                            .map((a) => a.user?.fullName)
+                            .join(", ")}
+                        </strong>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Status update dropdown */}
+                  <div className="task-details">
+                    <div>
+                      <span>Update Status</span>
+                      <select
+                        className="role-select"
+                        value={task.status}
+                        onChange={(e) =>
+                          handleStatusChange(task.id, e.target.value)
+                        }
+                        disabled={updatingStatus === task.id}
+                      >
+                        <option value="TODO">To Do</option>
+                        <option value="IN_PROGRESS">In Progress</option>
+                        <option value="IN_REVIEW">In Review</option>
+                        <option value="COMPLETED">Completed</option>
+                        <option value="BLOCKED">Blocked</option>
+                      </select>
                     </div>
                   </div>
 
@@ -477,7 +534,15 @@ const fetchTasks = useCallback(async () => {
         }}
         onSubmit={handleSubmit}
         task={selectedTask}
-        submitting={submitting}
+        loading={submitting}
+      />
+
+      {/* Task Detail Modal */}
+      <TaskDetailModal
+        open={!!detailTaskId}
+        onClose={() => setDetailTaskId(null)}
+        taskId={detailTaskId}
+        onUpdated={fetchTasks}
       />
 
     </div>

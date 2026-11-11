@@ -35,7 +35,9 @@ export default function Users() {
 
   const loadUsers = async () => {
     try {
-      const res = await api.get("/users");
+      const res = await api.get("/users", {
+        params: { role: roleFilter },
+      });
       setUsers(res.data.users || []);
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load users");
@@ -44,7 +46,7 @@ export default function Users() {
 
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, [roleFilter]);
 
   const openCreate = () => {
     setEditing(null);
@@ -173,9 +175,7 @@ export default function Users() {
       .toLowerCase()
       .includes(search.toLowerCase());
 
-    const matchesRole = roleFilter === "ALL" || u.role === roleFilter;
-
-    return matchesSearch && matchesRole;
+    return matchesSearch;
   });
 
   return (

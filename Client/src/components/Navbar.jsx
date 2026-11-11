@@ -11,7 +11,6 @@ const titles = {
   "/tasks": "Task Management",
   "/messages": "Messages",
   "/notifications": "Notifications",
-  "/settings": "Settings",
 };
 
 export default function Navbar() {

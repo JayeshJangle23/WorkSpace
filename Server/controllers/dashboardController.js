@@ -6,7 +6,6 @@ const getDashboard = async (req, res) => {
     const { id: userId, role } = req.user;
     const now = new Date();
 
-    // ADMIN DASHBOARD
     if (role === "ADMIN") {
       const [
         totalUsers,
@@ -96,7 +95,6 @@ const getDashboard = async (req, res) => {
       });
     }
 
-    // MANAGER DASHBOARD
     if (role === "MANAGER") {
       const [
         teams,
@@ -207,7 +205,6 @@ const getDashboard = async (req, res) => {
       });
     }
 
-    // EMPLOYEE DASHBOARD
     if (role === "EMPLOYEE") {
       const assignedToMe = {
         assignments: {
