@@ -51,7 +51,6 @@ const login = async (req, res) => {
       .status(200)
       .json({
         message: "Login successful",
-        token,
         user: {
           id: user.id,
           fullName: user.fullName,
@@ -102,9 +101,10 @@ const me = async (req, res) => {
 
 const logout = async (req, res) => {
   return res.status(200).clearCookie("token", {
-      // httpOnly: true,
+      httpOnly: true,
       // secure: process.env.NODE_ENV === "production",
-      // sameSite: "lax",
+      sameSite: "lax",
+      path:"/",
     }).json({
     message: "Logout successful",
   });
