@@ -17,30 +17,29 @@
    ================================================================ */
 :root {
   /* ── Accent / Brand ─────────────────────────────────────────── */
-  --accent: #7C3AED;  /* IMP Small TEXT */
-  --accent-hover: #6D28D9;
-  --accent-light: #5e439c;
-  --accent-soft: #EDE9FE; /* Special Logo */
-  --accent-fg: #ffffff;
 
-  /* ── Gradient ────────────────────────────────────────────────── */
-  --grad-from: #7C3AED; /* Button Gradient */
-  --grad-to: #4F46E5;
+ --accent: #16A34A;
+  --accent-hover: #15803D;
+  --accent-light: #4ADE80;
+  --accent-soft: #DCFCE7;
+  --accent-fg: #FFFFFF;
+
+
+  --grad-from: #16A34A;
+  --grad-to: #047857;
   --gradient: linear-gradient(135deg, var(--grad-from), var(--grad-to));
 
-  /* ── Backgrounds ─────────────────────────────────────────────── */
-  --bg: #F5F4FC;
+
+  --bg: #F0FDF4;
   --surface: #FFFFFF;
-  --surface-2: #F8F7FE;
+  --surface-2: #F0FDF4;
   --sidebar: #FFFFFF;
-
-  /* ── Text ────────────────────────────────────────────────────── */
-  --text: #1E1B4B;
-  --text-2: #4B5563;
-  --muted: #9CA3AF;
-
-  /* ── Borders ─────────────────────────────────────────────────── */
-  --border: #E5E3F5;
+  --text: #14532D;
+  --text-2: #475569;
+  --muted: #94A3B8;
+  --border: #D9F0DF;
+  --bubble-other-bg: #DCFCE7;
+  --bubble-other-fg: #14532D;
 
   /* ── Shadows ─────────────────────────────────────────────────── */
   --shadow-sm: 0 1px 4px rgba(100, 80, 200, .06);
@@ -145,9 +144,21 @@
   --bubble-other-fg: #F5F3FF;
 }
 
-/* ================================================================
-   BASE RESET — minimal, non-destructive
-   ================================================================ */
+
+html,
+body,
+#root,
+.card,
+.sidebar-bg,
+button,
+input,
+textarea,
+select {
+  transition:
+    background-color .25s ease,
+    color .25s ease,
+    border-color .25s ease;
+}
 *,
 *::before,
 *::after {

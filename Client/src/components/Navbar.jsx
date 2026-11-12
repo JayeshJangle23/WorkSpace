@@ -27,18 +27,16 @@ export default function Navbar({ onMenuClick, mobileOpen }) {
         boxShadow: "var(--shadow-sm)",
       }}
     >
-      {/* Left — hamburger (mobile) + page title */}
       <div className="flex items-center gap-3 min-w-0">
-        {/* Hamburger — only on mobile */}
         <button
-          className="btn-icon md:hidden flex-shrink-0"
+          className="hidden md:invisible flex-shrink-0 btn-icon"
           onClick={onMenuClick}
           aria-label={mobileOpen ? "Close menu" : "Open menu"}
         >
           {mobileOpen ? <X size={18} /> : <Menu size={18} />}
         </button>
 
-        <div className="min-w-0">
+        <div className="min-w-0 md:ml-[-50px]">
           <h2
             className="text-token truncate font-bold tracking-tight"
             style={{ fontFamily: "var(--font-heading)", fontSize: "clamp(14px, 3vw, 18px)" }}

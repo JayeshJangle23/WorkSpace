@@ -98,7 +98,7 @@ export default function Users() {
       {error && <p className="text-sm px-4 py-3 rounded-lg" style={{ color: "var(--danger)", background: "var(--danger-bg)" }}>{error}</p>}
 
       {/* Toolbar */}
-      <div className="card flex items-center gap-3 p-3 flex-wrap">
+      {/* <div className="card flex items-center gap-3 p-3 flex-wrap">
         <div className="flex items-center gap-2 flex-1 min-w-[180px] px-3 py-2 rounded-xl bg-surface-2 border-token"
           style={{ border: "1px solid var(--border)" }}>
           <Search size={16} className="text-muted flex-shrink-0" />
@@ -112,7 +112,34 @@ export default function Users() {
           <option value="MANAGER">Manager</option>
           <option value="EMPLOYEE">Employee</option>
         </select>
-      </div>
+      </div> */}
+      {/* Toolbar */}
+<div className="card !flex !flex-col sm:!flex-row sm:items-center gap-3 p-3">
+  <div
+    className="flex items-center gap-2 w-full sm:flex-1 min-w-0 px-3 py-2 rounded-xl bg-surface-2 border-token"
+    style={{ border: "1px solid var(--border)" }}
+  >
+    <Search size={16} className="text-muted flex-shrink-0" />
+    <input
+      className="flex-1 min-w-0 bg-transparent outline-none text-sm text-token"
+      placeholder="Search name or email…"
+      value={search}
+      onChange={(e) => setSearch(e.target.value)}
+    />
+  </div>
+
+  <select
+    className="field !w-full sm:!w-auto"
+    value={roleFilter}
+    onChange={(e) => setRoleFilter(e.target.value)}
+  >
+    <option value="ALL">All Roles</option>
+    <option value="ADMIN">Admin</option>
+    <option value="MANAGER">Manager</option>
+    <option value="EMPLOYEE">Employee</option>
+  </select>
+</div>
+
 
       {/* Table */}
       <div className="card">

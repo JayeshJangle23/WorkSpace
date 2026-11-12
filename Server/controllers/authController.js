@@ -38,19 +38,27 @@ const login = async (req, res) => {
       process.env.JWT_SECRET,
       {
         expiresIn: "1d",
-      }
+      },
     );
 
-    return res.status(200).json({
-      message: "Login successful",
-      token,
-      user: {
-        id: user.id,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role,
-      },
-    });
+    return res
+      .cookie("token", token, {
+        httpOnly: true,
+        secure: false,
+        sameSite: "lax",
+        maxAge: 24 * 60 * 60 * 1000,
+      })
+      .status(200)
+      .json({
+        message: "Login successful",
+        token,
+        user: {
+          id: user.id,
+          fullName: user.fullName,
+          email: user.email,
+          role: user.role,
+        },
+      });
   } catch (error) {
     return res.status(500).json({
       message: "Internal server error",
@@ -93,7 +101,11 @@ const me = async (req, res) => {
 };
 
 const logout = async (req, res) => {
-  return res.status(200).json({
+  return res.status(200).clearCookie("token", {
+      // httpOnly: true,
+      // secure: process.env.NODE_ENV === "production",
+      // sameSite: "lax",
+    }).json({
     message: "Logout successful",
   });
 };

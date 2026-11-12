@@ -1,6 +1,11 @@
 import { useState } from "react";
 import {
-  BrowserRouter, Routes, Route, Navigate, Outlet, useLocation,
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  Outlet,
+  useLocation,
 } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 
@@ -18,6 +23,7 @@ import Tasks from "./pages/Tasks";
 import Messages from "./pages/Messages";
 import Notifications from "./pages/Notifications.jsx";
 import Settings from "./pages/Settings";
+import { SocketProvider } from "./context/SocketContext.jsx";
 
 function AppLayout() {
   const { user } = useAuth();
@@ -31,14 +37,19 @@ function AppLayout() {
   const closeMobile = () => setMobileOpen(false);
 
   return (
-    <div className="flex min-h-screen" style={{ background: "var(--bg)", color: "var(--text)" }}>
-
+    <div
+      className="flex min-h-screen"
+      style={{ background: "var(--bg)", color: "var(--text)" }}
+    >
       {/* ── Mobile backdrop overlay ─────────────────────────── */}
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
             className="fixed inset-0 z-[25] md:hidden"
-            style={{ background: "rgba(10,8,30,.5)", backdropFilter: "blur(2px)" }}
+            style={{
+              background: "rgba(10,8,30,.5)",
+              backdropFilter: "blur(2px)",
+            }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -54,7 +65,7 @@ function AppLayout() {
           user={user}
           collapsed={collapsed}
           setCollapsed={setCollapsed}
-          onNavClick={() => { }}
+          onNavClick={() => {}}
         />
       </div>
 
@@ -71,7 +82,7 @@ function AppLayout() {
             <Sidebar
               user={user}
               collapsed={false}
-              setCollapsed={() => { }}
+              setCollapsed={() => {}}
               onNavClick={closeMobile}
             />
           </motion.div>
@@ -137,9 +148,11 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
+        <SocketProvider>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </SocketProvider>
       </AuthProvider>
     </ThemeProvider>
   );

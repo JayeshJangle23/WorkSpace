@@ -21,7 +21,7 @@ export default function Sidebar({ user, collapsed, setCollapsed, onNavClick }) {
     <motion.aside
       animate={{ width: collapsed ? 72 : 260 }}
       transition={{ duration: 0.22 }}
-      className="flex flex-col h-full md:h-screen flex-shrink-0"
+      className="flex flex-col h-screen md:h-screen flex-shrink-0"
       style={{
         background: "var(--sidebar)",
         borderRight: "1px solid var(--border)",
@@ -51,7 +51,6 @@ export default function Sidebar({ user, collapsed, setCollapsed, onNavClick }) {
         )}
       </div>
 
-      {/* ── Collapse toggle — desktop only ──────────────────── */}
       <div className="px-2 pt-3 pb-1 hidden md:block flex-shrink-0">
         <button
           onClick={() => setCollapsed(!collapsed)}
@@ -81,7 +80,7 @@ export default function Sidebar({ user, collapsed, setCollapsed, onNavClick }) {
       )}
 
       {/* ── Nav links ───────────────────────────────────────── */}
-      <nav className="flex flex-col gap-1 px-2 flex-1 overflow-y-auto py-1">
+      <nav className="flex flex-col gap-1 px-2 flex-1 overflow-hidden py-1">
         {visible.map(({ path, name, icon: Icon }) => (
           <NavLink
             key={path}

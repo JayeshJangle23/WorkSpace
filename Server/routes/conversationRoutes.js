@@ -17,7 +17,6 @@ const {
   markAsRead,
 } = require("../controllers/conversationController.js");
 
-// ─── General conversation routes (all authenticated users) ────────
 router.get("/", authMiddleware, getConversations);
 router.get("/users", authMiddleware, getUsersForChat);
 router.post("/direct", authMiddleware, createDirectConversation);
@@ -26,20 +25,10 @@ router.get("/:conversationId/messages", authMiddleware, getMessages);
 router.post("/:conversationId/messages", authMiddleware, sendMessage);
 router.patch("/:conversationId/read", authMiddleware, markAsRead);
 
-// ─── Group management routes ─────────────────────────────────────
-// Create group: ADMIN only
 router.post("/group", authMiddleware, allowRoles("ADMIN"), createGroupConversation);
-
-// Update group name: ADMIN only
 router.patch("/group/:conversationId", authMiddleware, allowRoles("ADMIN"), updateGroupConversation);
-
-// Delete group: ADMIN only
 router.delete("/group/:conversationId", authMiddleware, allowRoles("ADMIN"), deleteGroupConversation);
-
-// Add member to group: ADMIN or MANAGER
 router.post("/group/:conversationId/members", authMiddleware, allowRoles("ADMIN", "MANAGER"), addGroupMember);
-
-// Remove member from group: ADMIN or MANAGER
 router.delete("/group/:conversationId/members/:userId", authMiddleware, allowRoles("ADMIN", "MANAGER"), removeGroupMember);
 
 module.exports = router;

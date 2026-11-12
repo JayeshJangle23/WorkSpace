@@ -1,6 +1,5 @@
 const prisma = require("../config/db");
 
-// ─── GET ALL CONVERSATIONS FOR CURRENT USER ───────────────────────
 const getConversations = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -13,7 +12,12 @@ const getConversations = async (req, res) => {
         members: {
           include: {
             user: {
-              select: { id: true, fullName: true, email: true, avatarUrl: true },
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+                avatarUrl: true,
+              },
             },
           },
         },
@@ -55,14 +59,19 @@ const getConversations = async (req, res) => {
   }
 };
 
-// ─── GET USERS AVAILABLE FOR CHAT ─────────────────────────────────
 const getUsersForChat = async (req, res) => {
   try {
     const userId = req.user.id;
 
     const users = await prisma.user.findMany({
       where: { id: { not: userId }, isActive: true },
-      select: { id: true, fullName: true, email: true, avatarUrl: true, role: true },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        avatarUrl: true,
+        role: true,
+      },
     });
 
     return res.status(200).json({ users });
@@ -73,7 +82,6 @@ const getUsersForChat = async (req, res) => {
   }
 };
 
-// ─── CREATE DIRECT CONVERSATION ────────────────────────────────────
 const createDirectConversation = async (req, res) => {
   try {
     const { targetUserId } = req.body;
@@ -84,28 +92,96 @@ const createDirectConversation = async (req, res) => {
     }
 
     if (targetUserId === userId) {
-      return res.status(400).json({ message: "Cannot create conversation with yourself" });
+      return res
+        .status(400)
+        .json({ message: "Cannot create conversation with yourself" });
     }
+
+    // const existing = await prisma.conversation.findFirst({
+    //   where: {
+    //     type: "DIRECT",
+    //     AND: [
+    //       { members: { some: { userId } } },
+    //       { members: { some: { userId: targetUserId } } },
+    //     ],
+    //   },
+    //   include: {
+    //     members: {
+    //       include: {
+    //         user: {
+    //           select: { id: true, fullName: true, email: true, avatarUrl: true },
+    //         },
+    //       },
+    //     },
+    //   },
+    // });
+
+    // const existing = await prisma.conversation.findFirst({
+    //   where: {
+    //     type: "DIRECT",
+    //     members: {
+    //       every: {
+    //         userId: { in: [userId, targetUserId] },
+    //       },
+    //       some: { userId },
+    //     },
+    //   },
+    //   include: {
+    //     members: {
+    //       include: {
+    //         user: {
+    //           select: {
+    //             id: true,
+    //             fullName: true,
+    //             email: true,
+    //             avatarUrl: true,
+    //           },
+    //         },
+    //       },
+    //     },
+    //   },
+    // });
 
     const existing = await prisma.conversation.findFirst({
       where: {
         type: "DIRECT",
         AND: [
-          { members: { some: { userId } } },
-          { members: { some: { userId: targetUserId } } },
+          {
+            members: {
+              some: { userId },
+            },
+          },
+          {
+            members: {
+              some: { userId: targetUserId },
+            },
+          },
+          {
+            members: {
+              every: {
+                userId: {
+                  in: [userId, targetUserId],
+                },
+              },
+            },
+          },
         ],
       },
       include: {
         members: {
           include: {
             user: {
-              select: { id: true, fullName: true, email: true, avatarUrl: true },
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+                avatarUrl: true,
+              },
             },
           },
         },
       },
     });
-
     if (existing) {
       return res.status(200).json({ conversation: existing });
     }
@@ -121,7 +197,12 @@ const createDirectConversation = async (req, res) => {
         members: {
           include: {
             user: {
-              select: { id: true, fullName: true, email: true, avatarUrl: true },
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+                avatarUrl: true,
+              },
             },
           },
         },
@@ -136,7 +217,6 @@ const createDirectConversation = async (req, res) => {
   }
 };
 
-// ─── CREATE GROUP CONVERSATION (ADMIN only) ───────────────────────
 const createGroupConversation = async (req, res) => {
   try {
     const { name, memberIds } = req.body;
@@ -152,7 +232,6 @@ const createGroupConversation = async (req, res) => {
         .json({ message: "At least one member is required" });
     }
 
-    // Include the creator in the member list
     const allMemberIds = [...new Set([userId, ...memberIds])];
 
     const conversation = await prisma.conversation.create({
@@ -187,7 +266,6 @@ const createGroupConversation = async (req, res) => {
   }
 };
 
-// ─── UPDATE GROUP CONVERSATION (ADMIN only) ───────────────────────
 const updateGroupConversation = async (req, res) => {
   try {
     const { conversationId } = req.params;
@@ -202,7 +280,9 @@ const updateGroupConversation = async (req, res) => {
     }
 
     if (conversation.type !== "GROUP") {
-      return res.status(400).json({ message: "Only group conversations can be updated" });
+      return res
+        .status(400)
+        .json({ message: "Only group conversations can be updated" });
     }
 
     const data = {};
@@ -215,7 +295,12 @@ const updateGroupConversation = async (req, res) => {
         members: {
           include: {
             user: {
-              select: { id: true, fullName: true, email: true, avatarUrl: true },
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+                avatarUrl: true,
+              },
             },
           },
         },
@@ -230,7 +315,6 @@ const updateGroupConversation = async (req, res) => {
   }
 };
 
-// ─── DELETE GROUP CONVERSATION (ADMIN only) ───────────────────────
 const deleteGroupConversation = async (req, res) => {
   try {
     const { conversationId } = req.params;
@@ -244,12 +328,12 @@ const deleteGroupConversation = async (req, res) => {
     }
 
     if (conversation.type !== "GROUP") {
-      return res.status(400).json({ message: "Only group conversations can be deleted" });
+      return res
+        .status(400)
+        .json({ message: "Only group conversations can be deleted" });
     }
 
-    // Delete all related data in a transaction
     await prisma.$transaction(async (tx) => {
-      // Delete read receipts for messages in this conversation
       const messageIds = await tx.message.findMany({
         where: { conversationId },
         select: { id: true },
@@ -261,13 +345,10 @@ const deleteGroupConversation = async (req, res) => {
         });
       }
 
-      // Delete messages
       await tx.message.deleteMany({ where: { conversationId } });
 
-      // Delete conversation members
       await tx.conversationMember.deleteMany({ where: { conversationId } });
 
-      // Delete conversation
       await tx.conversation.delete({ where: { id: conversationId } });
     });
 
@@ -279,7 +360,6 @@ const deleteGroupConversation = async (req, res) => {
   }
 };
 
-// ─── ADD MEMBER TO GROUP (ADMIN or MANAGER) ───────────────────────
 const addGroupMember = async (req, res) => {
   try {
     const { conversationId } = req.params;
@@ -298,10 +378,11 @@ const addGroupMember = async (req, res) => {
     }
 
     if (conversation.type !== "GROUP") {
-      return res.status(400).json({ message: "Only group conversations support adding members" });
+      return res
+        .status(400)
+        .json({ message: "Only group conversations support adding members" });
     }
 
-    // Check if already a member
     const existing = await prisma.conversationMember.findUnique({
       where: { conversationId_userId: { conversationId, userId } },
     });
@@ -310,7 +391,6 @@ const addGroupMember = async (req, res) => {
       return res.status(409).json({ message: "User is already a member" });
     }
 
-    // Verify the user exists and is active
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user || !user.isActive) {
       return res.status(404).json({ message: "User not found or inactive" });
@@ -319,7 +399,9 @@ const addGroupMember = async (req, res) => {
     const member = await prisma.conversationMember.create({
       data: { conversationId, userId },
       include: {
-        user: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
+        user: {
+          select: { id: true, fullName: true, email: true, avatarUrl: true },
+        },
       },
     });
 
@@ -331,7 +413,6 @@ const addGroupMember = async (req, res) => {
   }
 };
 
-// ─── REMOVE MEMBER FROM GROUP (ADMIN or MANAGER) ──────────────────
 const removeGroupMember = async (req, res) => {
   try {
     const { conversationId, userId } = req.params;
@@ -345,7 +426,9 @@ const removeGroupMember = async (req, res) => {
     }
 
     if (conversation.type !== "GROUP") {
-      return res.status(400).json({ message: "Only group conversations support removing members" });
+      return res
+        .status(400)
+        .json({ message: "Only group conversations support removing members" });
     }
 
     const member = await prisma.conversationMember.findUnique({
@@ -353,7 +436,9 @@ const removeGroupMember = async (req, res) => {
     });
 
     if (!member) {
-      return res.status(404).json({ message: "Member not found in this group" });
+      return res
+        .status(404)
+        .json({ message: "Member not found in this group" });
     }
 
     await prisma.conversationMember.delete({
@@ -368,7 +453,6 @@ const removeGroupMember = async (req, res) => {
   }
 };
 
-// ─── GET OR CREATE TEAM CONVERSATION ──────────────────────────────
 const getTeamConversation = async (req, res) => {
   try {
     const { teamId } = req.params;
@@ -379,24 +463,29 @@ const getTeamConversation = async (req, res) => {
       return res.status(404).json({ message: "Team not found" });
     }
 
-    // Verify access: must be team member, manager, or admin
     const isMember = await prisma.teamMember.findUnique({
       where: { teamId_userId: { teamId, userId } },
     });
     const isManager = team.managerId === userId;
 
     if (!isMember && !isManager && req.user.role !== "ADMIN") {
-      return res.status(403).json({ message: "You are not a member of this team" });
+      return res
+        .status(403)
+        .json({ message: "You are not a member of this team" });
     }
 
-    // Find or create the team conversation
     let conversation = await prisma.conversation.findUnique({
       where: { teamId },
       include: {
         members: {
           include: {
             user: {
-              select: { id: true, fullName: true, email: true, avatarUrl: true },
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+                avatarUrl: true,
+              },
             },
           },
         },
@@ -426,7 +515,12 @@ const getTeamConversation = async (req, res) => {
           members: {
             include: {
               user: {
-                select: { id: true, fullName: true, email: true, avatarUrl: true },
+                select: {
+                  id: true,
+                  fullName: true,
+                  email: true,
+                  avatarUrl: true,
+                },
               },
             },
           },
@@ -436,13 +530,13 @@ const getTeamConversation = async (req, res) => {
 
     return res.status(200).json({ conversation });
   } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Failed to get team conversation", error: error.message });
+    return res.status(500).json({
+      message: "Failed to get team conversation",
+      error: error.message,
+    });
   }
 };
 
-// ─── GET MESSAGES FOR A CONVERSATION ──────────────────────────────
 const getMessages = async (req, res) => {
   try {
     const { conversationId } = req.params;
@@ -479,7 +573,6 @@ const getMessages = async (req, res) => {
   }
 };
 
-// ─── SEND A MESSAGE (all members can send) ───────────────────────
 const sendMessage = async (req, res) => {
   try {
     const { conversationId } = req.params;
@@ -518,29 +611,29 @@ const sendMessage = async (req, res) => {
       data: { updatedAt: new Date() },
     });
 
-    // Create read receipt for the sender
     await prisma.messageReadReceipt
       .create({
         data: { messageId: message.id, userId: senderId },
       })
       .catch(() => {});
 
-    // Create notifications for other members
     const otherMembers = await prisma.conversationMember.findMany({
       where: { conversationId, userId: { not: senderId } },
       select: { userId: true },
     });
 
     if (otherMembers.length > 0) {
-      await prisma.notification.createMany({
-        data: otherMembers.map((m) => ({
-          userId: m.userId,
-          type: "MESSAGE",
-          title: `New message from ${req.user.fullName}`,
-          body: content.trim().slice(0, 100),
-          data: { conversationId, messageId: message.id },
-        })),
-      }).catch(() => {});
+      await prisma.notification
+        .create({
+          data: otherMembers.map((m) => ({
+            userId: m.userId,
+            type: "MESSAGE",
+            title: `New message from ${req.user.fullName}`,
+            body: content.trim().slice(0, 100),
+            data: { conversationId, messageId: message.id },
+          })),
+        })
+        .catch(() => {});
     }
 
     return res
@@ -553,7 +646,6 @@ const sendMessage = async (req, res) => {
   }
 };
 
-// ─── MARK CONVERSATION MESSAGES AS READ ───────────────────────────
 const markAsRead = async (req, res) => {
   try {
     const { conversationId } = req.params;
