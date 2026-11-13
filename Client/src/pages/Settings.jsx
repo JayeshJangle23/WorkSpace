@@ -53,7 +53,7 @@ export default function Settings() {
 
             {error && <p className="text-sm px-4 py-3 rounded-lg" style={{ color: "var(--danger)", background: "var(--danger-bg)" }}>{error}</p>}
 
-            {/* Tab switcher */}
+            {}
             <div className="flex gap-2">
                 {isAdmin && (
                     <button className={tab === "settings" ? "btn-primary text-xs" : "btn-secondary text-xs"}

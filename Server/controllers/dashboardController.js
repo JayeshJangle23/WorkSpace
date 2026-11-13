@@ -1,10 +1,16 @@
-
 const prisma = require("../config/db.js");
+const { cacheGet, cacheSet, cacheDel, TTL, KEYS } = require("../config/redis");
 
 const getDashboard = async (req, res) => {
   try {
     const { id: userId, role } = req.user;
     const now = new Date();
+
+    const cacheKey = KEYS.dashboard(role, userId);
+    const cached = await cacheGet(cacheKey);
+    if (cached) {
+      return res.status(200).json(cached);
+    }
 
     if (role === "ADMIN") {
       const [
@@ -78,7 +84,7 @@ const getDashboard = async (req, res) => {
         }),
       ]);
 
-      return res.status(200).json({
+      const response = {
         role,
         stats: {
           totalUsers,
@@ -92,7 +98,10 @@ const getDashboard = async (req, res) => {
         },
         recentUsers,
         recentTasks,
-      });
+      };
+
+      await cacheSet(cacheKey, response, TTL.DASHBOARD);
+      return res.status(200).json(response);
     }
 
     if (role === "MANAGER") {
@@ -189,7 +198,7 @@ const getDashboard = async (req, res) => {
         0
       );
 
-      return res.status(200).json({
+      const response = {
         role,
         stats: {
           totalTeams,
@@ -202,7 +211,10 @@ const getDashboard = async (req, res) => {
         },
         teams,
         recentTasks,
-      });
+      };
+
+      await cacheSet(cacheKey, response, TTL.DASHBOARD);
+      return res.status(200).json(response);
     }
 
     if (role === "EMPLOYEE") {
@@ -283,7 +295,7 @@ const getDashboard = async (req, res) => {
         }),
       ]);
 
-      return res.status(200).json({
+      const response = {
         role,
         stats: {
           totalTasks,
@@ -294,7 +306,10 @@ const getDashboard = async (req, res) => {
           overdueTasks,
         },
         recentTasks,
-      });
+      };
+
+      await cacheSet(cacheKey, response, TTL.DASHBOARD);
+      return res.status(200).json(response);
     }
 
     return res.status(403).json({

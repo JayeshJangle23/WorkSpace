@@ -1,9 +1,10 @@
 const jwt = require("jsonwebtoken");
 const prisma = require("../config/db.js");
+const { cacheGet, cacheSet, TTL, KEYS } = require("../config/redis");
 
 const authMiddleware = async (req, res, next) => {
   try {
-    // Read JWT from HTTP-only cookie
+    
     const token = req.cookies?.token;
 
     if (!token) {
@@ -12,13 +13,16 @@ const authMiddleware = async (req, res, next) => {
       });
     }
 
-    // Verify JWT
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Fetch authenticated user
+    const cacheKey = KEYS.userSession(decoded.id);
+    const cachedUser = await cacheGet(cacheKey);
+
+    if (cachedUser) {
+      req.user = cachedUser;
+      return next();
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
       select: {
@@ -36,9 +40,9 @@ const authMiddleware = async (req, res, next) => {
       });
     }
 
-    // Attach user to request
-    req.user = user;
+    await cacheSet(cacheKey, user, TTL.USER_SESSION);
 
+    req.user = user;
     next();
 
   } catch (error) {

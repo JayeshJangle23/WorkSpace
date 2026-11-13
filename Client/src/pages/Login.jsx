@@ -46,7 +46,7 @@ export default function Login() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45 }}
       >
-        {/* Logo */}
+        {}
         <div className="brand-icon-grad w-12 h-12 rounded-xl grid place-items-center mb-6">
           <Layers size={26} />
         </div>
@@ -57,7 +57,7 @@ export default function Login() {
         <p className="font-body text-muted text-sm mb-7">Sign in to your WorkSpace account</p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {/* Email */}
+          {}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold" style={{ color: "var(--text-2)" }}>
               Email address
@@ -79,7 +79,7 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Password */}
+          {}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold" style={{ color: "var(--text-2)" }}>
               Password

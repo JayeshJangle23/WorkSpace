@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect, useCallback, useRef } from "react"; import { motion } from "framer-motion";
 import {
   Send,
   RefreshCw,
@@ -12,8 +11,7 @@ import {
   UserMinus,
   Trash2,
   ArrowLeft,
-} from "lucide-react";
-import { useAuth } from "../context/AuthContext";
+} from "lucide-react"; import { useAuth } from "../context/AuthContext";
 import conversationService from "../services/conversationService";
 import Modal from "../components/Modal";
 import { useSocket } from "../context/SocketContext";
@@ -33,6 +31,7 @@ export default function Messages() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
 
   const [showNewModal, setShowNewModal] = useState(false);
   const [chatUsers, setChatUsers] = useState([]);
@@ -41,11 +40,12 @@ export default function Messages() {
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [creatingGroup, setCreatingGroup] = useState(false);
 
-  const [groupModal, setGroupModal] = useState(""); // "rename"|"addMember"|"members"
+  const [groupModal, setGroupModal] = useState(""); 
   const [editGroupName, setEditGroupName] = useState("");
   const [addMemberId, setAddMemberId] = useState("");
 
   const [mobileShowChat, setMobileShowChat] = useState(false);
+  const [deletingMsgId, setDeletingMsgId] = useState(null);
 
   const isAdmin = user?.role === "ADMIN";
   const canManageGroups = isAdmin || user?.role === "MANAGER";
@@ -66,7 +66,7 @@ export default function Messages() {
   };
 
   const getConvAvatar = (conv) => {
-    if (conv.type === "TEAM" || conv.type === "GROUP") return null; // show icon
+    if (conv.type === "TEAM" || conv.type === "GROUP") return null; 
     return getConvName(conv).charAt(0).toUpperCase();
   };
 
@@ -91,7 +91,7 @@ export default function Messages() {
     try {
       setMsgLoading(true);
       const data = await conversationService.getMessages(convId);
-      // setMessages(data.messages || []);
+      
       setMessages((prev) => {
         const combined = new Map();
 
@@ -102,7 +102,7 @@ export default function Messages() {
           (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
         );
       });
-      await conversationService.markAsRead(convId).catch(() => {});
+      await conversationService.markAsRead(convId).catch(() => { });
       setConversations((prev) =>
         prev.map((c) => (c.id === convId ? { ...c, unreadCount: 0 } : c)),
       );
@@ -149,7 +149,6 @@ export default function Messages() {
           return;
         }
 
-        // Then load history
         setMsgLoading(true);
 
         const data = await conversationService.getMessages(conversationId);
@@ -163,7 +162,6 @@ export default function Messages() {
             .filter((m) => m.conversationId === conversationId)
             .forEach((m) => combined.set(m.id, m));
 
-          // Add messages fetched from the database
           data.messages.forEach((m) => combined.set(m.id, m));
 
           return [...combined.values()].sort(
@@ -188,27 +186,49 @@ export default function Messages() {
       }
     };
 
-    // Register listener before joining and loading history
     socket.on("message:new", handleNewMessage);
+
+    const handleMessageDeleted = ({ messageId }) => {
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    };
+    socket.on("message:deleted", handleMessageDeleted);
 
     initialize();
 
     return () => {
       active = false;
-
       socket.off("message:new", handleNewMessage);
-
-      socket.emit("conversation:leave", {
-        conversationId,
-      });
+      socket.off("message:deleted", handleMessageDeleted);
+      socket.emit("conversation:leave", { conversationId });
     };
   }, [selectedConv?.id, socket, connected, user?.id]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  const isFirstLoad = useRef(true);
 
-  // ── Select conversation (handle mobile nav) ───────────────────
+  useEffect(() => {
+    isFirstLoad.current = true;
+    setMessages([]);           
+  }, [selectedConv?.id]);
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    if (isFirstLoad.current) {
+      
+      requestAnimationFrame(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      });
+      isFirstLoad.current = false;
+    } else {
+      
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+  
   const selectConv = (conv) => {
     setSelectedConv(conv);
     setMobileShowChat(true);
@@ -219,42 +239,6 @@ export default function Messages() {
     setSelectedConv(null);
   };
 
-  // useEffect(() => {
-  //   if (!socket || !connected) return;
-
-  //   const handleConversationUpdate = ({ conversationId, message }) => {
-  //     setConversations((prev) => {
-  //       const exists = prev.some((c) => c.id === conversationId);
-
-  //       if (!exists) {
-  //         // Fetch newly created/available conversations
-  //         fetchConversations();
-  //         return prev;
-  //       }
-
-  //       return prev
-  //         .map((conv) => {
-  //           if (conv.id !== conversationId) return conv;
-
-  //           const isOpen = selectedConv?.id === conversationId;
-
-  //           return {
-  //             ...conv,
-  //             updatedAt: message.createdAt,
-  //             messages: [message],
-  //             unreadCount: isOpen ? 0 : (conv.unreadCount || 0) + 1,
-  //           };
-  //         })
-  //         .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-  //     });
-  //   };
-
-  //   socket.on("conversation:updated", handleConversationUpdate);
-
-  //   return () => {
-  //     socket.off("conversation:updated", handleConversationUpdate);
-  //   };
-  // }, [socket, connected, selectedConv?.id, fetchConversations]);
   useEffect(() => {
     if (!socket || !connected) return;
 
@@ -329,7 +313,20 @@ export default function Messages() {
     }, 1200);
   };
 
-  // ── Send message ──────────────────────────────────────────────
+  const handleDeleteMessage = async (messageId) => {
+    if (!window.confirm("Delete this message?")) return;
+    try {
+      setDeletingMsgId(messageId);
+      await conversationService.deleteMessage(selectedConv.id, messageId);
+      
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    } catch (err) {
+      window.alert(err.response?.data?.message || "Failed to delete message");
+    } finally {
+      setDeletingMsgId(null);
+    }
+  };
+
   const handleSend = async (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedConv || !socket || !connected) return;
@@ -364,7 +361,6 @@ export default function Messages() {
     }
   };
 
-  // ── New conversation modal ────────────────────────────────────
   const openNewModal = async () => {
     try {
       const data = await conversationService.getUsersForChat();
@@ -420,7 +416,6 @@ export default function Messages() {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
 
-  // ── Group management ──────────────────────────────────────────
   const handleUpdateGroup = async (e) => {
     e.preventDefault();
     try {
@@ -498,23 +493,21 @@ export default function Messages() {
     (u) => !selectedConv?.members?.some((m) => m.userId === u.id),
   );
 
-  /* ── Conversation list item ─────────────────────────────────── */
   const ConvItem = ({ conv }) => {
     const isSelected = selectedConv?.id === conv.id;
     return (
       <button
         type="button"
         onClick={() => selectConv(conv)}
-        className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-colors ${
-          isSelected ? "bg-surface-2" : "hover:bg-surface-2"
-        }`}
+        className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-colors ${isSelected ? "bg-surface-2" : "hover:bg-surface-2"
+          }`}
         style={{
           border: isSelected
             ? "1px solid var(--border)"
             : "1px solid transparent",
         }}
       >
-        {/* Avatar */}
+        {}
         <div
           className="w-10 h-10 rounded-xl grid place-items-center flex-shrink-0 font-heading font-bold text-sm"
           style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
@@ -552,7 +545,7 @@ export default function Messages() {
       className="page-pad flex flex-col gap-5"
       style={{ height: "calc(100dvh - 64px)", overflow: "hidden" }}
     >
-      {/* Page header */}
+      {}
       <div className="flex items-center justify-between gap-4 flex-shrink-0">
         <div>
           <h1 className="font-heading text-token text-2xl font-extrabold tracking-tight">
@@ -576,13 +569,12 @@ export default function Messages() {
         </p>
       )}
 
-      {/* Chat layout: 2-column on desktop, full-screen panels on mobile */}
+      {}
       <div className="flex gap-4 min-h-0 flex-1">
-        {/* ── Conversation list panel ───────────────────────── */}
+        {}
         <div
-          className={`card flex flex-col min-h-0 w-full md:w-72 lg:w-80 flex-shrink-0 ${
-            mobileShowChat ? "hidden md:flex" : "flex"
-          }`}
+          className={`card flex flex-col min-h-0 w-full md:w-72 lg:w-80 flex-shrink-0 ${mobileShowChat ? "hidden md:flex" : "flex"
+            }`}
         >
           <div
             className="px-4 pt-4 pb-3 flex-shrink-0"
@@ -625,14 +617,13 @@ export default function Messages() {
           </div>
         </div>
 
-        {/* ── Message area panel ───────────────────────────── */}
+        {}
         <div
-          className={`card flex-1 flex flex-col min-h-0 min-w-0 ${
-            !mobileShowChat && selectedConv === null ? "hidden md:flex" : "flex"
-          } ${!mobileShowChat && !selectedConv ? "hidden md:flex" : ""}`}
+          className={`card flex-1 flex flex-col min-h-0 min-w-0 ${!mobileShowChat && selectedConv === null ? "hidden md:flex" : "flex"
+            } ${!mobileShowChat && !selectedConv ? "hidden md:flex" : ""}`}
         >
           {!selectedConv ? (
-            /* Empty state */
+            
             <div className="flex flex-col items-center justify-center gap-4 flex-1 text-muted">
               <div
                 className="w-16 h-16 rounded-2xl grid place-items-center"
@@ -654,13 +645,13 @@ export default function Messages() {
             </div>
           ) : (
             <>
-              {/* Chat header */}
+              {}
               <div
                 className="flex items-center justify-between gap-3 px-5 py-3.5 flex-shrink-0"
                 style={{ borderBottom: "1px solid var(--border)" }}
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  {/* Mobile back button */}
+                  {}
                   <button
                     className="btn-icon md:hidden flex-shrink-0"
                     onClick={goBackToList}
@@ -676,7 +667,7 @@ export default function Messages() {
                     }}
                   >
                     {selectedConv.type === "TEAM" ||
-                    selectedConv.type === "GROUP" ? (
+                      selectedConv.type === "GROUP" ? (
                       <Users size={16} />
                     ) : (
                       <span className="font-heading font-bold text-sm">
@@ -695,7 +686,7 @@ export default function Messages() {
                   </div>
                 </div>
 
-                {/* Group management toolbar */}
+                {}
                 {selectedConv.type === "GROUP" && canManageGroups && (
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     <button
@@ -742,8 +733,8 @@ export default function Messages() {
                 )}
               </div>
 
-              {/* Messages area */}
-              <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+              {}
+              <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
                 {messagesLoading ? (
                   <div className="flex items-center justify-center flex-1 text-muted">
                     <RefreshCw
@@ -760,18 +751,31 @@ export default function Messages() {
                 ) : (
                   messages.map((msg) => {
                     const isOwn = msg.senderId === user?.id;
+                    const canDelete = isOwn || isAdmin;
                     return (
                       <motion.div
                         key={msg.id}
-                        className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
+                        className={`flex items-end gap-1.5 group ${isOwn ? "justify-end" : "justify-start"}`}
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.15 }}
                       >
+                        {}
+                        {canDelete && (
+                          <button
+                            className="btn-icon danger opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mb-1"
+                            style={{ width: 24, height: 24, order: isOwn ? 0 : 2 }}
+                            title="Delete message"
+                            disabled={deletingMsgId === msg.id}
+                            onClick={() => handleDeleteMessage(msg.id)}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
                         <div
-                          className={`max-w-[75%] sm:max-w-[65%] px-4 py-2.5 shadow-sm ${
-                            isOwn ? "bubble-own" : "bubble-other"
-                          }`}
+                          className={`max-w-[75%] sm:max-w-[65%] px-4 py-2.5 shadow-sm ${isOwn ? "bubble-own" : "bubble-other"
+                            }`}
+                          style={{ order: 1 }}
                         >
                           {!isOwn && (
                             <strong
@@ -797,10 +801,21 @@ export default function Messages() {
                     );
                   })
                 )}
+                {}
+                {typingUsers.length > 0 && (
+                  <div className="flex items-center gap-2 px-1">
+                    <div className="flex gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: "var(--accent)", animationDelay: "0ms" }} />
+                      <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: "var(--accent)", animationDelay: "150ms" }} />
+                      <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: "var(--accent)", animationDelay: "300ms" }} />
+                    </div>
+                    <small className="text-muted text-[11px]">typing…</small>
+                  </div>
+                )}
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Message input */}
+              {}
               <form
                 onSubmit={handleSend}
                 className="flex items-center gap-2.5 px-4 py-3 flex-shrink-0"
@@ -827,17 +842,17 @@ export default function Messages() {
         </div>
       </div>
 
-      {/* ─────────────────────────────────────────────────────
-          MODALS
-      ───────────────────────────────────────────────────── */}
+      {
 
-      {/* New conversation */}
+}
+
+      {}
       <Modal
         open={showNewModal}
         onClose={() => setShowNewModal(false)}
         title="Start New Conversation"
       >
-        {/* Tab bar */}
+        {}
         <div className="flex gap-2 mt-3 mb-4">
           <button
             className={
@@ -863,7 +878,7 @@ export default function Messages() {
           )}
         </div>
 
-        {/* Direct tab */}
+        {}
         {modalTab === "direct" && (
           <div className="flex flex-col gap-2">
             <p className="text-muted text-xs font-bold uppercase tracking-wide">
@@ -903,7 +918,7 @@ export default function Messages() {
           </div>
         )}
 
-        {/* Group tab (admin only) */}
+        {}
         {modalTab === "group" && isAdmin && (
           <form onSubmit={handleCreateGroup} className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
@@ -980,7 +995,7 @@ export default function Messages() {
         )}
       </Modal>
 
-      {/* Rename group */}
+      {}
       <Modal
         open={groupModal === "rename"}
         onClose={() => setGroupModal("")}
@@ -1000,7 +1015,7 @@ export default function Messages() {
         </form>
       </Modal>
 
-      {/* Add member */}
+      {}
       <Modal
         open={groupModal === "addMember"}
         onClose={() => setGroupModal("")}
@@ -1032,7 +1047,7 @@ export default function Messages() {
         </form>
       </Modal>
 
-      {/* Members list */}
+      {}
       <Modal
         open={groupModal === "members"}
         onClose={() => setGroupModal("")}

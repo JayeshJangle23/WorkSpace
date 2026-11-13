@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Search, Pencil, Trash2, ShieldCheck, KeyRound } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, ShieldCheck, KeyRound, ToggleLeft, ToggleRight } from "lucide-react";
 import api from "../api/axios";
 import Modal from "../components/Modal";
 
@@ -20,6 +20,7 @@ export default function Users() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [togglingId, setTogglingId] = useState(null);
 
   const loadUsers = async () => {
     try {
@@ -65,6 +66,20 @@ export default function Users() {
     catch (err) { setError(err.response?.data?.message || "Unable to delete"); }
   };
 
+  const handleToggleStatus = async (user) => {
+    try {
+      setTogglingId(user.id);
+      const res = await api.patch(`/users/${user.id}/status`);
+      setUsers((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, isActive: !u.isActive } : u))
+      );
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to toggle status");
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   const handleChangePassword = async (e) => {
     e.preventDefault(); setPasswordError("");
     if (newPassword.length < 8) return setPasswordError("Must be 8+ characters");
@@ -84,7 +99,7 @@ export default function Users() {
 
   return (
     <div className="page-pad flex flex-col gap-6">
-      {/* Header */}
+      {}
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="font-heading text-token text-2xl font-extrabold tracking-tight m-0 mb-1">User Management</h1>
@@ -97,51 +112,38 @@ export default function Users() {
 
       {error && <p className="text-sm px-4 py-3 rounded-lg" style={{ color: "var(--danger)", background: "var(--danger-bg)" }}>{error}</p>}
 
-      {/* Toolbar */}
-      {/* <div className="card flex items-center gap-3 p-3 flex-wrap">
-        <div className="flex items-center gap-2 flex-1 min-w-[180px] px-3 py-2 rounded-xl bg-surface-2 border-token"
-          style={{ border: "1px solid var(--border)" }}>
+      {}
+      {
+
+}
+      {}
+      <div className="card !flex !flex-col sm:!flex-row sm:items-center gap-3 p-3">
+        <div
+          className="flex items-center gap-2 w-full sm:flex-1 min-w-0 px-3 py-2 rounded-xl bg-surface-2 border-token"
+          style={{ border: "1px solid var(--border)" }}
+        >
           <Search size={16} className="text-muted flex-shrink-0" />
-          <input className="flex-1 min-w-0 bg-transparent outline-none text-sm text-token"
-            placeholder="Search name or email…" value={search}
-            onChange={(e) => setSearch(e.target.value)} />
+          <input
+            className="flex-1 min-w-0 bg-transparent outline-none text-sm text-token"
+            placeholder="Search name or email…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
-        <select className="field w-auto" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+
+        <select
+          className="field !w-full sm:!w-auto"
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+        >
           <option value="ALL">All Roles</option>
           <option value="ADMIN">Admin</option>
           <option value="MANAGER">Manager</option>
           <option value="EMPLOYEE">Employee</option>
         </select>
-      </div> */}
-      {/* Toolbar */}
-<div className="card !flex !flex-col sm:!flex-row sm:items-center gap-3 p-3">
-  <div
-    className="flex items-center gap-2 w-full sm:flex-1 min-w-0 px-3 py-2 rounded-xl bg-surface-2 border-token"
-    style={{ border: "1px solid var(--border)" }}
-  >
-    <Search size={16} className="text-muted flex-shrink-0" />
-    <input
-      className="flex-1 min-w-0 bg-transparent outline-none text-sm text-token"
-      placeholder="Search name or email…"
-      value={search}
-      onChange={(e) => setSearch(e.target.value)}
-    />
-  </div>
+      </div>
 
-  <select
-    className="field !w-full sm:!w-auto"
-    value={roleFilter}
-    onChange={(e) => setRoleFilter(e.target.value)}
-  >
-    <option value="ALL">All Roles</option>
-    <option value="ADMIN">Admin</option>
-    <option value="MANAGER">Manager</option>
-    <option value="EMPLOYEE">Employee</option>
-  </select>
-</div>
-
-
-      {/* Table */}
+      {}
       <div className="card">
         <div className="flex items-center justify-between gap-3 p-5 pb-4">
           <div>
@@ -186,9 +188,22 @@ export default function Users() {
                       </select>
                     </td>
                     <td className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
-                      <span className={`badge ${u.isActive ? "badge-active" : "badge-inactive"}`}>
-                        {u.isActive ? "Active" : "Inactive"}
-                      </span>
+                      <button
+                        className="flex items-center gap-1.5 text-xs font-semibold transition-opacity"
+                        style={{ opacity: togglingId === u.id ? 0.5 : 1 }}
+                        disabled={togglingId === u.id}
+                        title={u.isActive ? "Deactivate user" : "Activate user"}
+                        onClick={() => handleToggleStatus(u)}
+                      >
+                        {u.isActive ? (
+                          <ToggleRight size={22} style={{ color: "var(--success, #10B981)" }} />
+                        ) : (
+                          <ToggleLeft size={22} className="text-muted" />
+                        )}
+                        <span className={u.isActive ? "text-token" : "text-muted"}>
+                          {u.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </button>
                     </td>
                     <td className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
                       <div className="flex items-center gap-1.5">
@@ -214,7 +229,7 @@ export default function Users() {
         )}
       </div>
 
-      {/* Create / Edit modal */}
+      {}
       <Modal open={showModal} onClose={() => setShowModal(false)} title={editing ? "Edit User" : "Create User"}>
         <form className="flex flex-col gap-3 pt-3" onSubmit={saveUser}>
           {[
@@ -248,7 +263,7 @@ export default function Users() {
         </form>
       </Modal>
 
-      {/* Password modal */}
+      {}
       <Modal open={passwordModal} onClose={() => setPasswordModal(false)} title="Change Password">
         <form className="flex flex-col gap-3 pt-3" onSubmit={handleChangePassword}>
           <p className="text-sm text-muted m-0">Change password for <strong className="text-token">{selectedUser?.fullName}</strong></p>

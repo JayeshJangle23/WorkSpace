@@ -1,6 +1,7 @@
 const express = require("express");
 const app = express();
 const port = process.env.PORT || 3000;
+const path = require("path");
 const cookieParser = require("cookie-parser");
 const authRoutes = require("./routes/authRoutes.js");
 const userRoutes = require("./routes/userRoutes.js");
@@ -14,6 +15,7 @@ const swaggerDocument = require("./utils/swagger-output.json");
 const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
+const { redis } = require("./config/redis");
 const server = http.createServer(app);
 
 app.use(express.json());
@@ -25,6 +27,8 @@ app.use(
   }),
 );
 app.use(cookieParser());
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 const io = new Server(server, {
   cors: {
     origin: "http://localhost:5173",
@@ -42,6 +46,11 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/conversations", conversationRoutes);
 require("./socket/socketHandler")(io)
+
+redis.connect().catch((err) => {
+  console.warn("Redis connect warning:", err.message);
+});
+
 app.get("/", (req, res) => {
   res.send("Hello, World!");
 });

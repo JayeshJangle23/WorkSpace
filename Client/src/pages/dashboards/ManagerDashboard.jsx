@@ -38,7 +38,7 @@ export default function ManagerDashboard({ data }) {
         ))}
       </div>
 
-      {/* Teams grid */}
+      {}
       <div className="card p-5">
         <h3 className="text-token text-base font-bold mb-1">My Teams</h3>
         <p className="text-muted text-xs mb-4">Teams assigned to your management.</p>
@@ -55,7 +55,6 @@ export default function ManagerDashboard({ data }) {
         </div>
       </div>
 
-      {/* Recent tasks */}
       <div className="card p-5">
         <h3 className="text-token text-base font-bold mb-1">Recent Tasks</h3>
         <p className="text-muted text-xs mb-4">Latest tasks from your teams.</p>

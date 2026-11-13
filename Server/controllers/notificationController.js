@@ -1,14 +1,22 @@
 const prisma = require("../config/db");
+const { cacheGet, cacheSet, cacheDel, TTL, KEYS } = require("../config/redis");
 
 const getNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
+    const cacheKey = KEYS.notifications(userId);
+
+    const cached = await cacheGet(cacheKey);
+    if (cached) {
+      return res.status(200).json({ notifications: cached });
+    }
 
     const notifications = await prisma.notification.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
     });
 
+    await cacheSet(cacheKey, notifications, TTL.NOTIFICATIONS);
     return res.status(200).json({ notifications });
   } catch (error) {
     return res
@@ -20,11 +28,18 @@ const getNotifications = async (req, res) => {
 const getUnreadCount = async (req, res) => {
   try {
     const userId = req.user.id;
+    const cacheKey = KEYS.notificationsUnread(userId);
+
+    const cached = await cacheGet(cacheKey);
+    if (cached !== null) {
+      return res.status(200).json({ count: cached });
+    }
 
     const count = await prisma.notification.count({
       where: { userId, isRead: false },
     });
 
+    await cacheSet(cacheKey, count, TTL.NOTIFICATIONS);
     return res.status(200).json({ count });
   } catch (error) {
     return res
@@ -55,6 +70,11 @@ const markAsRead = async (req, res) => {
       data: { isRead: true, readAt: new Date() },
     });
 
+    await cacheDel(
+      KEYS.notificationsUnread(userId),
+      KEYS.notifications(userId)
+    );
+
     return res.status(200).json({ message: "Marked as read" });
   } catch (error) {
     return res
@@ -71,6 +91,11 @@ const markAllAsRead = async (req, res) => {
       where: { userId, isRead: false },
       data: { isRead: true, readAt: new Date() },
     });
+
+    await cacheDel(
+      KEYS.notificationsUnread(userId),
+      KEYS.notifications(userId)
+    );
 
     return res.status(200).json({ message: "All notifications marked as read" });
   } catch (error) {
@@ -98,6 +123,11 @@ const deleteNotification = async (req, res) => {
     }
 
     await prisma.notification.delete({ where: { id } });
+
+    await cacheDel(
+      KEYS.notificationsUnread(userId),
+      KEYS.notifications(userId)
+    );
 
     return res.status(200).json({ message: "Notification deleted" });
   } catch (error) {

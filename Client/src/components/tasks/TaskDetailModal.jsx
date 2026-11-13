@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     X, ClipboardList, Send, CheckCircle2, XCircle,
-    MessageSquare, Trash2, UserCheck, Eye,
+    MessageSquare, Trash2, UserCheck, Eye, Paperclip,
+    Upload, Download, FileText, Image, File,
 } from "lucide-react";
 import api from "../../api/axios";
 import taskService from "../../services/taskService";
@@ -13,6 +14,19 @@ const fmtDate = (d) =>
 
 const fmtDateTime = (d) =>
     d ? new Date(d).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+
+const fmtFileSize = (bytes) => {
+    if (!bytes) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const getFileIcon = (mimeType = "") => {
+    if (mimeType.startsWith("image/")) return Image;
+    if (mimeType.includes("pdf") || mimeType.includes("word") || mimeType.includes("text")) return FileText;
+    return File;
+};
 
 const statusBadge = {
     TODO: "badge badge-todo",
@@ -26,23 +40,28 @@ export default function TaskDetailModal({ open, onClose, taskId, onUpdated }) {
     const { user } = useAuth();
     const [task, setTask] = useState(null);
     const [comments, setComments] = useState([]);
+    const [attachments, setAttachments] = useState([]);
     const [newComment, setNewComment] = useState("");
     const [reviewNote, setReviewNote] = useState("");
     const [loading, setLoading] = useState(false);
     const [commentLoading, setCommentLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
+    const [uploadLoading, setUploadLoading] = useState(false);
+    const [deletingAttachId, setDeletingAttachId] = useState(null);
     const [error, setError] = useState("");
 
     const fetchDetail = useCallback(async () => {
         if (!taskId) return;
         try {
             setLoading(true); setError("");
-            const [taskRes, commentsRes] = await Promise.all([
+            const [taskRes, commentsRes, attachmentsRes] = await Promise.all([
                 api.get(`/tasks/${taskId}`),
                 taskService.getComments(taskId),
+                api.get(`/tasks/${taskId}/attachments`),
             ]);
             setTask(taskRes.data.task);
             setComments(commentsRes.comments || []);
+            setAttachments(attachmentsRes.data.attachments || []);
         } catch (err) { setError(err.response?.data?.message || "Failed to load task"); }
         finally { setLoading(false); }
     }, [taskId]);
@@ -67,6 +86,38 @@ export default function TaskDetailModal({ open, onClose, taskId, onUpdated }) {
             await taskService.deleteComment(taskId, commentId);
             setComments(p => p.filter(c => c.id !== commentId));
         } catch (err) { window.alert(err.response?.data?.message || "Failed"); }
+    };
+
+    const handleUploadAttachment = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+            setUploadLoading(true);
+            const formData = new FormData();
+            formData.append("file", file);
+            const res = await api.post(`/tasks/${taskId}/attachments`, formData, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
+            setAttachments(p => [res.data.attachment, ...p]);
+        } catch (err) {
+            window.alert(err.response?.data?.message || "Failed to upload file");
+        } finally {
+            setUploadLoading(false);
+            e.target.value = ""; 
+        }
+    };
+
+    const handleDeleteAttachment = async (attachmentId) => {
+        if (!window.confirm("Delete this attachment?")) return;
+        try {
+            setDeletingAttachId(attachmentId);
+            await api.delete(`/tasks/${taskId}/attachments/${attachmentId}`);
+            setAttachments(p => p.filter(a => a.id !== attachmentId));
+        } catch (err) {
+            window.alert(err.response?.data?.message || "Failed to delete attachment");
+        } finally {
+            setDeletingAttachId(null);
+        }
     };
 
     const handleSubmitReview = async () => {
@@ -106,7 +157,7 @@ export default function TaskDetailModal({ open, onClose, taskId, onUpdated }) {
                         initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.22 }}
                     >
-                        {/* Header */}
+                        {}
                         <div className="flex items-start justify-between gap-3 p-6 pb-5"
                             style={{ borderBottom: "1px solid var(--border)" }}>
                             <div className="flex items-center gap-3">
@@ -128,7 +179,7 @@ export default function TaskDetailModal({ open, onClose, taskId, onUpdated }) {
                             <p className="text-sm px-6 py-4" style={{ color: "var(--danger)" }}>{error}</p>
                         ) : task ? (
                             <div className="p-6 flex flex-col gap-5">
-                                {/* Info grid */}
+                                {}
                                 <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                                     <div className="col-span-2">
                                         <p className="text-muted text-[11px] font-bold uppercase tracking-wide mb-1">Title</p>
@@ -156,7 +207,7 @@ export default function TaskDetailModal({ open, onClose, taskId, onUpdated }) {
                                         </div>
                                     ))}
 
-                                    {/* Assignees */}
+                                    {}
                                     <div className="col-span-2">
                                         <p className="text-muted text-[11px] font-bold uppercase tracking-wide mb-2 flex items-center gap-1">
                                             <UserCheck size={12} /> Assigned To
@@ -172,7 +223,7 @@ export default function TaskDetailModal({ open, onClose, taskId, onUpdated }) {
                                         )}
                                     </div>
 
-                                    {/* Review info */}
+                                    {}
                                     {task.reviewStatus && task.reviewStatus !== "NOT_SUBMITTED" && (
                                         <div className="col-span-2 p-4 rounded-xl" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
                                             <p className="text-muted text-[11px] font-bold uppercase tracking-wide mb-2">Review Status</p>
@@ -187,7 +238,7 @@ export default function TaskDetailModal({ open, onClose, taskId, onUpdated }) {
                                     )}
                                 </div>
 
-                                {/* Action buttons */}
+                                {}
                                 {(canSubmit || canReviewTask) && (
                                     <div className="flex flex-wrap gap-2.5 pt-1">
                                         {canSubmit && (
@@ -213,7 +264,70 @@ export default function TaskDetailModal({ open, onClose, taskId, onUpdated }) {
                                     </div>
                                 )}
 
-                                {/* Comments */}
+                                {}
+                                <div className="pt-5" style={{ borderTop: "1px solid var(--border)" }}>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-token text-sm font-bold flex items-center gap-2 m-0">
+                                            <Paperclip size={16} style={{ color: "var(--accent)" }} />
+                                            Attachments ({attachments.length})
+                                        </h3>
+                                        <label
+                                            className="btn-primary text-xs cursor-pointer flex items-center gap-1.5"
+                                            style={{ opacity: uploadLoading ? 0.6 : 1, pointerEvents: uploadLoading ? "none" : "auto" }}
+                                        >
+                                            <Upload size={13} />
+                                            {uploadLoading ? "Uploading…" : "Upload File"}
+                                            <input
+                                                type="file"
+                                                className="hidden"
+                                                onChange={handleUploadAttachment}
+                                                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip"
+                                                disabled={uploadLoading}
+                                            />
+                                        </label>
+                                    </div>
+
+                                    {attachments.length === 0 ? (
+                                        <p className="text-muted text-xs">No attachments yet.</p>
+                                    ) : (
+                                        <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
+                                            {attachments.map((att) => {
+                                                const FileIcon = getFileIcon(att.mimeType);
+                                                const canDelete = att.uploadedById === user?.id || user?.role === "ADMIN";
+                                                return (
+                                                    <div key={att.id} className="flex items-center gap-3 p-2.5 rounded-xl"
+                                                        style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+                                                        <div className="w-8 h-8 rounded-lg grid place-items-center flex-shrink-0"
+                                                            style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
+                                                            <FileIcon size={15} />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-token text-xs font-semibold truncate m-0">{att.fileName}</p>
+                                                            <small className="text-muted text-[11px]">
+                                                                {fmtFileSize(att.fileSize)} · {att.uploadedBy?.fullName}
+                                                            </small>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 flex-shrink-0">
+                                                            <a href={att.fileUrl} target="_blank" rel="noreferrer"
+                                                                className="btn-icon" title="Download">
+                                                                <Download size={13} />
+                                                            </a>
+                                                            {canDelete && (
+                                                                <button className="btn-icon danger" title="Delete"
+                                                                    disabled={deletingAttachId === att.id}
+                                                                    onClick={() => handleDeleteAttachment(att.id)}>
+                                                                    <Trash2 size={13} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {}
                                 <div className="pt-5" style={{ borderTop: "1px solid var(--border)" }}>
                                     <h3 className="text-token text-sm font-bold flex items-center gap-2 mb-4">
                                         <MessageSquare size={16} style={{ color: "var(--accent)" }} />

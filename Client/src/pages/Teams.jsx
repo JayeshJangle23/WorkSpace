@@ -128,7 +128,7 @@ export default function Teams() {
         </AnimatePresence>
       </div>
 
-      {/* Team form modal */}
+      {}
       <Modal open={modal === "team"} onClose={() => setModal("")} title={editing ? "Edit Team" : "Create Team"}>
         <form className="flex flex-col gap-3 pt-3" onSubmit={saveTeam}>
           {[
@@ -153,7 +153,7 @@ export default function Teams() {
         </form>
       </Modal>
 
-      {/* Members modal */}
+      {}
       <Modal open={modal === "details"} onClose={() => setModal("")} title={selected?.name || "Team Members"}>
         {selected && (
           <div className="flex flex-col gap-4 pt-3">

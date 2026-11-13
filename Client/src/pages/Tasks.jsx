@@ -119,7 +119,7 @@ export default function Tasks() {
   return (
     <div className="page-pad flex flex-col gap-6">
 
-      {/* ── Header ─────────────────────────────────────────────── */}
+      {}
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="font-heading text-token text-2xl font-extrabold tracking-tight m-0 mb-1">Task Management</h1>
@@ -136,7 +136,6 @@ export default function Tasks() {
         )}
       </div>
 
-      {/* ── Stat cards ─────────────────────────────────────────── */}
       <div className="stats-responsive">
         {statCards.map(({ label, value, icon: Icon, color }, i) => (
           <motion.div key={label} className="card p-5 hover:-translate-y-1 transition-transform"
@@ -151,7 +150,6 @@ export default function Tasks() {
         ))}
       </div>
 
-      {/* Filters */}
       <div className="card flex flex-wrap items-center gap-3 p-3 filters-mobile">
         <div className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 rounded-xl bg-surface-2 filter-search"
           style={{ border: "1px solid var(--border)" }}>
@@ -180,7 +178,6 @@ export default function Tasks() {
         </button>
       </div>
 
-      {/* ── Task grid ──────────────────────────────────────────── */}
       <div className="card p-6">
         <div className="flex items-center justify-between mb-5">
           <div>
@@ -226,7 +223,7 @@ export default function Tasks() {
                   exit={{ opacity: 0, scale: 0.95 }} transition={{ delay: i * 0.03 }}
                   layout
                 >
-                  {/* Card header */}
+                  
                   <div className="flex items-center justify-between">
                     <div className="w-10 h-10 rounded-xl grid place-items-center"
                       style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
@@ -251,13 +248,11 @@ export default function Tasks() {
                     </div>
                   </div>
 
-                  {/* Title + description */}
                   <h3 className="text-token text-[15px] font-bold leading-snug m-0">{task.title}</h3>
                   <p className="text-muted text-xs leading-relaxed m-0 line-clamp-2">
                     {task.description || "No description provided."}
                   </p>
 
-                  {/* Status + priority badges */}
                   <div className="flex flex-wrap gap-1.5">
                     <span className={statusBadge[task.status] || "badge badge-todo"}>
                       {(task.status || "TODO").replaceAll("_", " ")}
@@ -267,7 +262,6 @@ export default function Tasks() {
                     </span>
                   </div>
 
-                  {/* Meta */}
                   <div className="flex flex-col gap-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-muted">Team</span>
@@ -286,7 +280,6 @@ export default function Tasks() {
                       </div>
                     )}
 
-                    {/* Status update */}
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-muted">Update Status</span>
                       <select
@@ -304,7 +297,6 @@ export default function Tasks() {
                     </div>
                   </div>
 
-                  {/* Due date */}
                   <div className="flex items-center gap-1.5 text-xs font-medium pt-1"
                     style={{ color: "var(--accent-light)" }}>
                     <CalendarDays size={13} />

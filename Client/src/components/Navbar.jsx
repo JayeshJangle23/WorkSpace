@@ -52,9 +52,9 @@ export default function Navbar({ onMenuClick, mobileOpen }) {
         </div>
       </div>
 
-      {/* Right — search (lg+), theme, logout */}
+      {}
       <div className="flex items-center gap-2 flex-shrink-0">
-        {/* Search pill — desktop only */}
+        {}
         <div
           className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-xl text-muted text-sm"
           style={{

@@ -84,7 +84,7 @@ export default function TaskModal({ open, onClose, onSubmit, task, loading }) {
             initial={{ opacity: 0, scale: 0.95, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.22 }}
           >
-            {/* Header */}
+            {}
             <div className="flex items-start justify-between gap-3 mb-6">
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-xl grid place-items-center flex-shrink-0"
@@ -101,19 +101,19 @@ export default function TaskModal({ open, onClose, onSubmit, task, loading }) {
 
             <form onSubmit={handleSubmit}>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Title field — full width on mobile */}
+            {}
               <div className="col-span-2 sm:col-span-2 flex flex-col gap-1.5">
                   <label className="text-xs font-bold" style={{ color: "var(--text-2)" }}>Task Title *</label>
                   <input className="field" name="title" value={form.title} onChange={handleChange} placeholder="Enter task title" required maxLength={150} />
                 </div>
 
-                {/* Description */}
+                {}
                 <div className="col-span-2 flex flex-col gap-1.5">
                   <label className="text-xs font-bold" style={{ color: "var(--text-2)" }}>Description</label>
                   <textarea className="field min-h-[80px] resize-y" name="description" value={form.description} onChange={handleChange} placeholder="Describe your task…" rows={3} />
                 </div>
 
-                {/* Team */}
+                {}
                 <div className="col-span-2 flex flex-col gap-1.5">
                   <label className="text-xs font-bold" style={{ color: "var(--text-2)" }}>Select Team *</label>
                   <select className="field" name="teamId" value={form.teamId} onChange={handleChange} required disabled={teamsLoading || teams.length === 0}>
@@ -122,7 +122,7 @@ export default function TaskModal({ open, onClose, onSubmit, task, loading }) {
                   </select>
                 </div>
 
-                {/* Assignees */}
+                {}
                 {form.teamId && (
                   <div className="col-span-2 flex flex-col gap-1.5">
                     <label className="text-xs font-bold flex items-center gap-1" style={{ color: "var(--text-2)" }}>
@@ -147,7 +147,7 @@ export default function TaskModal({ open, onClose, onSubmit, task, loading }) {
                   </div>
                 )}
 
-                {/* Priority */}
+                {}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold" style={{ color: "var(--text-2)" }}>Priority</label>
                   <select className="field" name="priority" value={form.priority} onChange={handleChange}>
@@ -158,13 +158,13 @@ export default function TaskModal({ open, onClose, onSubmit, task, loading }) {
                   </select>
                 </div>
 
-                {/* Start Date */}
+                {}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-bold" style={{ color: "var(--text-2)" }}>Start Date</label>
                   <input className="field" type="date" name="startDate" value={form.startDate} onChange={handleChange} />
                 </div>
 
-                {/* Due Date */}
+                {}
                 <div className="col-span-2 flex flex-col gap-1.5">
                   <label className="text-xs font-bold" style={{ color: "var(--text-2)" }}>Due Date</label>
                   <input className="field" type="date" name="dueDate" value={form.dueDate} onChange={handleChange} />

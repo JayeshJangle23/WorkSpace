@@ -15,6 +15,7 @@ const {
   getMessages,
   sendMessage,
   markAsRead,
+  deleteMessage,
 } = require("../controllers/conversationController.js");
 
 router.get("/", authMiddleware, getConversations);
@@ -24,6 +25,7 @@ router.get("/team/:teamId", authMiddleware, getTeamConversation);
 router.get("/:conversationId/messages", authMiddleware, getMessages);
 router.post("/:conversationId/messages", authMiddleware, sendMessage);
 router.patch("/:conversationId/read", authMiddleware, markAsRead);
+router.delete("/:conversationId/messages/:messageId", authMiddleware, deleteMessage);
 
 router.post("/group", authMiddleware, allowRoles("ADMIN"), createGroupConversation);
 router.patch("/group/:conversationId", authMiddleware, allowRoles("ADMIN"), updateGroupConversation);

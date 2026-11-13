@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  LayoutDashboard, Users, UsersRound, CheckSquare,
+  LayoutDashboard, Users, UsersRound, CheckSquare,ArrowLeft,
   MessageSquare, Bell, Layers, PanelLeftClose, PanelLeft,
 } from "lucide-react";
 
@@ -21,7 +21,7 @@ export default function Sidebar({ user, collapsed, setCollapsed, onNavClick }) {
     <motion.aside
       animate={{ width: collapsed ? 72 : 260 }}
       transition={{ duration: 0.22 }}
-      className="flex flex-col h-screen md:h-screen flex-shrink-0"
+      className="sticky top-0 flex flex-col h-screen self-start flex-shrink-0"
       style={{
         background: "var(--sidebar)",
         borderRight: "1px solid var(--border)",
@@ -30,26 +30,56 @@ export default function Sidebar({ user, collapsed, setCollapsed, onNavClick }) {
         overflow: "hidden",
       }}
     >
-      {/* ── Brand ───────────────────────────────────────────── */}
-      <div
-        className="flex items-center gap-3 px-4 py-5 overflow-hidden flex-shrink-0"
-        style={{ borderBottom: "1px solid var(--border)" }}
+
+      {}
+<div
+  className="flex items-center justify-between gap-3 px-4 py-5 overflow-hidden flex-shrink-0"
+  style={{ borderBottom: "1px solid var(--border)" }}
+>
+  {}
+  <div className="flex items-center gap-3 min-w-0">
+    <div
+      className="w-9 h-9 rounded-xl grid place-items-center flex-shrink-0"
+      style={{
+        background: "var(--gradient)",
+        color: "#fff",
+        boxShadow: "0 4px 12px rgba(124,58,237,.35)",
+      }}
+    >
+      <Layers size={20} />
+    </div>
+
+    {!collapsed && (
+      <span
+        className="font-extrabold tracking-tight whitespace-nowrap text-[17px]"
+        style={{
+          fontFamily: "var(--font-heading)",
+          color: "var(--text)",
+        }}
       >
-        <div
-          className="w-9 h-9 rounded-xl grid place-items-center flex-shrink-0"
-          style={{ background: "var(--gradient)", color: "#fff", boxShadow: "0 4px 12px rgba(124,58,237,.35)" }}
-        >
-          <Layers size={20} />
-        </div>
-        {!collapsed && (
-          <span
-            className="font-extrabold tracking-tight whitespace-nowrap text-[17px]"
-            style={{ fontFamily: "var(--font-heading)", color: "var(--text)" }}
-          >
-            WorkSpace
-          </span>
-        )}
-      </div>
+        WorkSpace
+      </span>
+    )}
+  </div>
+
+  {}
+  <button
+    onClick={onNavClick}
+    className="md:hidden flex-shrink-0 p-2 rounded-lg transition-colors"
+    style={{
+      color: "var(--text)",
+      background: "var(--surface-2)",
+    }}
+    aria-label="Close sidebar"
+  >
+    <ArrowLeft size={20} />
+  </button>
+</div>
+
+      {}
+      {
+
+}
 
       <div className="px-2 pt-3 pb-1 hidden md:block flex-shrink-0">
         <button
@@ -69,7 +99,7 @@ export default function Sidebar({ user, collapsed, setCollapsed, onNavClick }) {
         </button>
       </div>
 
-      {/* ── Nav label ───────────────────────────────────────── */}
+      {}
       {!collapsed && (
         <p
           className="px-5 py-2 text-[9px] font-bold tracking-widest uppercase flex-shrink-0"
@@ -79,7 +109,7 @@ export default function Sidebar({ user, collapsed, setCollapsed, onNavClick }) {
         </p>
       )}
 
-      {/* ── Nav links ───────────────────────────────────────── */}
+      {}
       <nav className="flex flex-col gap-1 px-2 flex-1 overflow-hidden py-1">
         {visible.map(({ path, name, icon: Icon }) => (
           <NavLink
@@ -119,7 +149,7 @@ export default function Sidebar({ user, collapsed, setCollapsed, onNavClick }) {
         ))}
       </nav>
 
-      {/* ── User footer ─────────────────────────────────────── */}
+      {}
       {!collapsed && user && (
         <div
           className="flex items-center gap-3 px-4 py-4 flex-shrink-0"

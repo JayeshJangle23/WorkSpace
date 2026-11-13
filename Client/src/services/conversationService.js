@@ -1,4 +1,3 @@
-
 import api from "../api/axios";
 
 const conversationService = {
@@ -80,6 +79,13 @@ const conversationService = {
   markAsRead: async (conversationId) => {
     const response = await api.patch(
       `/conversations/${conversationId}/read`
+    );
+    return response.data;
+  },
+
+  deleteMessage: async (conversationId, messageId) => {
+    const response = await api.delete(
+      `/conversations/${conversationId}/messages/${messageId}`
     );
     return response.data;
   },

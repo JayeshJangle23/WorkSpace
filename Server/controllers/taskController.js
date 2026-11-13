@@ -1,4 +1,8 @@
 const prisma = require("../config/db");
+const { cacheGet, cacheSet, cacheDel, cacheDelPattern, TTL, KEYS } = require("../config/redis");
+const { logActivity } = require("../utils/activityLogger");
+const path = require("path");
+const fs = require("fs");
 
 const createTask = async (req, res) => {
   try {
@@ -69,7 +73,6 @@ const createTask = async (req, res) => {
       return newTask;
     });
 
-    // Fetch the created task with relations
     const taskWithRelations = await prisma.task.findUnique({
       where: { id: task.id },
       include: {
@@ -85,7 +88,6 @@ const createTask = async (req, res) => {
       },
     });
 
-    // Log activity + notify assignees
     await logActivity({
       actorId: createdById,
       action: "CREATED_TASK",
@@ -95,18 +97,44 @@ const createTask = async (req, res) => {
     });
 
     if (assigneeIds && assigneeIds.length > 0) {
-      await prisma.notification.createMany({
-        data: assigneeIds.map((userId) => ({
-          userId,
-          type: "TASK_ASSIGNED",
-          title: "New Task Assigned",
-          body: `You have been assigned to "${title}"`,
-          data: { taskId: task.id, teamId },
-        })),
-      }).catch((err) => {
+      const notifData = assigneeIds.map((userId) => ({
+        userId,
+        type: "TASK_ASSIGNED",
+        title: "New Task Assigned",
+        body: `You have been assigned to "${title}"`,
+        data: { taskId: task.id, teamId },
+      }));
+
+      await prisma.notification.createMany({ data: notifData }).catch((err) => {
         console.error("Notification error:", err.message);
       });
+
+      const io = req.app.get("io");
+      if (io) {
+        const created = await prisma.notification.findMany({
+          where: { taskId: task.id, type: "TASK_ASSIGNED" },
+          orderBy: { createdAt: "desc" },
+          take: assigneeIds.length,
+        }).catch(() => []);
+
+        for (const notif of created) {
+          io.to(`user:${notif.userId}`).emit("notification:new", notif);
+        }
+      }
+
+      await Promise.all(
+        assigneeIds.map((userId) =>
+          cacheDel(
+            KEYS.notificationsUnread(userId),
+            KEYS.notifications(userId)
+          )
+        )
+      );
     }
+
+    await cacheDelPattern("tasks:*");
+    
+    await cacheDelPattern("dashboard:*");
 
     return res.status(201).json({
       message: "Task created successfully",
@@ -123,6 +151,12 @@ const createTask = async (req, res) => {
 const getTasks = async (req, res) => {
   try {
     const { id: userId, role } = req.user;
+
+    const cacheKey = KEYS.tasks(role, userId);
+    const cached = await cacheGet(cacheKey);
+    if (cached) {
+      return res.status(200).json(cached);
+    }
 
     let where = {};
 
@@ -154,7 +188,9 @@ const getTasks = async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
 
-    return res.status(200).json({ count: tasks.length, tasks });
+    const result = { count: tasks.length, tasks };
+    await cacheSet(cacheKey, result, TTL.TASKS);
+    return res.status(200).json(result);
   } catch (error) {
     return res.status(500).json({
       message: "Failed to fetch tasks",
@@ -166,6 +202,12 @@ const getTasks = async (req, res) => {
 const getTaskById = async (req, res) => {
   try {
     const taskId = req.params.taskId;
+
+    const cacheKey = KEYS.task(taskId);
+    const cached = await cacheGet(cacheKey);
+    if (cached) {
+      return res.status(200).json({ task: cached });
+    }
 
     const task = await prisma.task.findUnique({
       where: { id: taskId },
@@ -190,6 +232,7 @@ const getTaskById = async (req, res) => {
       });
     }
 
+    await cacheSet(cacheKey, task, TTL.TASKS);
     return res.status(200).json({ task });
   } catch (error) {
     return res.status(500).json({
@@ -245,12 +288,11 @@ const editTask = async (req, res) => {
     }
 
     await prisma.$transaction(async (tx) => {
-      // Update task fields
+      
       if (Object.keys(data).length > 0) {
         await tx.task.update({ where: { id: taskId }, data });
       }
 
-      // Sync assignments if assigneeIds is provided
       if (assigneeIds !== undefined) {
         const currentAssignments = await tx.taskAssignment.findMany({
           where: { taskId },
@@ -262,7 +304,6 @@ const editTask = async (req, res) => {
           (id) => !assigneeIds.includes(id),
         );
 
-        // Validate new assignees are team members
         const effectiveTeamId = teamId || existingTask.teamId;
         for (const userId of newIds) {
           const member = await tx.teamMember.findUnique({
@@ -295,7 +336,6 @@ const editTask = async (req, res) => {
       }
     });
 
-    // Fetch updated task with relations
     const updatedTask = await prisma.task.findUnique({
       where: { id: taskId },
       include: {
@@ -308,6 +348,10 @@ const editTask = async (req, res) => {
         },
       },
     });
+
+    await cacheDel(KEYS.task(taskId));
+    await cacheDelPattern("tasks:*");
+    await cacheDelPattern("dashboard:*");
 
     return res.status(200).json({
       message: "Task updated successfully",
@@ -334,6 +378,10 @@ const deleteTask = async (req, res) => {
     }
 
     await prisma.task.delete({ where: { id: taskId } });
+
+    await cacheDel(KEYS.task(taskId));
+    await cacheDelPattern("tasks:*");
+    await cacheDelPattern("dashboard:*");
 
     return res.status(200).json({
       message: "Task deleted successfully",
@@ -464,7 +512,6 @@ const updateTaskStatus = async (req, res) => {
       },
     });
 
-    // Log activity
     await logActivity({
       actorId: req.user.id,
       action: "UPDATED_TASK_STATUS",
@@ -473,8 +520,7 @@ const updateTaskStatus = async (req, res) => {
       metadata: { status },
     });
 
-    // Notify task creator
-    await prisma.notification.create({
+    const notif = await prisma.notification.create({
       data: {
         userId: task.createdById,
         type: "TASK_UPDATED",
@@ -484,7 +530,21 @@ const updateTaskStatus = async (req, res) => {
       },
     }).catch((err) => {
       console.error("Notification error:", err.message);
+      return null;
     });
+
+    const io = req.app.get("io");
+    if (io && notif) {
+      io.to(`user:${task.createdById}`).emit("notification:new", notif);
+    }
+
+    await cacheDel(
+      KEYS.task(taskId),
+      KEYS.notificationsUnread(task.createdById),
+      KEYS.notifications(task.createdById)
+    );
+    await cacheDelPattern("tasks:*");
+    await cacheDelPattern("dashboard:*");
 
     return res.status(200).json({
       message: "Task status updated successfully",
@@ -538,7 +598,6 @@ const submitTaskForReview = async (req, res) => {
       data: { status: "IN_REVIEW" },
     });
 
-    // Log activity
     await logActivity({
       actorId: userId,
       action: "SUBMITTED_TASK_FOR_REVIEW",
@@ -546,14 +605,13 @@ const submitTaskForReview = async (req, res) => {
       entityId: taskId,
     });
 
-    // Notify the team manager
     const team = await prisma.team.findUnique({
       where: { id: task.teamId },
       select: { managerId: true, name: true },
     });
 
     if (team) {
-      await prisma.notification.create({
+      const notif = await prisma.notification.create({
         data: {
           userId: team.managerId,
           type: "TASK_UPDATED",
@@ -563,8 +621,23 @@ const submitTaskForReview = async (req, res) => {
         },
       }).catch((err) => {
         console.error("Notification error:", err.message);
+        return null;
       });
+
+      const io = req.app.get("io");
+      if (io && notif) {
+        io.to(`user:${team.managerId}`).emit("notification:new", notif);
+      }
+
+      await cacheDel(
+        KEYS.notificationsUnread(team.managerId),
+        KEYS.notifications(team.managerId)
+      );
     }
+
+    await cacheDel(KEYS.task(taskId));
+    await cacheDelPattern("tasks:*");
+    await cacheDelPattern("dashboard:*");
 
     return res.status(200).json({
       success: true,
@@ -623,7 +696,6 @@ const reviewTask = async (req, res) => {
       },
     });
 
-    // Log activity
     await logActivity({
       actorId: reviewedById,
       action: "REVIEWED_TASK",
@@ -632,28 +704,53 @@ const reviewTask = async (req, res) => {
       metadata: { reviewStatus, reviewNote },
     });
 
-    // Notify assigned users
     const assignments = await prisma.taskAssignment.findMany({
       where: { taskId },
       select: { userId: true },
     });
 
     if (assignments.length > 0) {
-      await prisma.notification.createMany({
-        data: assignments.map((a) => ({
-          userId: a.userId,
-          type: "TASK_REVIEWED",
-          title: "Task Review Result",
-          body:
-            reviewStatus === "APPROVED"
-              ? `"${task.title}" has been approved`
-              : `"${task.title}" needs changes`,
-          data: { taskId, reviewStatus },
-        })),
-      }).catch((err) => {
+      const notifData = assignments.map((a) => ({
+        userId: a.userId,
+        type: "TASK_REVIEWED",
+        title: "Task Review Result",
+        body:
+          reviewStatus === "APPROVED"
+            ? `"${task.title}" has been approved`
+            : `"${task.title}" needs changes`,
+        data: { taskId, reviewStatus },
+      }));
+
+      await prisma.notification.createMany({ data: notifData }).catch((err) => {
         console.error("Notification error:", err.message);
       });
+
+      const io = req.app.get("io");
+      if (io) {
+        const created = await prisma.notification.findMany({
+          where: { taskId, type: "TASK_REVIEWED" },
+          orderBy: { createdAt: "desc" },
+          take: assignments.length,
+        }).catch(() => []);
+
+        for (const notif of created) {
+          io.to(`user:${notif.userId}`).emit("notification:new", notif);
+        }
+      }
+
+      await Promise.all(
+        assignments.map((a) =>
+          cacheDel(
+            KEYS.notificationsUnread(a.userId),
+            KEYS.notifications(a.userId)
+          )
+        )
+      );
     }
+
+    await cacheDel(KEYS.task(taskId));
+    await cacheDelPattern("tasks:*");
+    await cacheDelPattern("dashboard:*");
 
     return res.status(200).json({
       message: "Task reviewed successfully",
@@ -667,10 +764,15 @@ const reviewTask = async (req, res) => {
   }
 };
 
-
 const getComments = async (req, res) => {
   try {
     const { taskId } = req.params;
+
+    const cacheKey = KEYS.taskComments(taskId);
+    const cached = await cacheGet(cacheKey);
+    if (cached) {
+      return res.status(200).json({ comments: cached });
+    }
 
     const comments = await prisma.taskComment.findMany({
       where: { taskId },
@@ -682,6 +784,7 @@ const getComments = async (req, res) => {
       orderBy: { createdAt: "asc" },
     });
 
+    await cacheSet(cacheKey, comments, TTL.TASKS);
     return res.status(200).json({ comments });
   } catch (error) {
     return res
@@ -726,6 +829,8 @@ const addComment = async (req, res) => {
       metadata: { commentId: comment.id },
     });
 
+    await cacheDel(KEYS.taskComments(taskId), KEYS.task(taskId));
+
     return res
       .status(201)
       .json({ message: "Comment added successfully", comment });
@@ -757,6 +862,8 @@ const deleteComment = async (req, res) => {
 
     await prisma.taskComment.delete({ where: { id: commentId } });
 
+    await cacheDel(KEYS.taskComments(comment.taskId), KEYS.task(comment.taskId));
+
     return res.status(200).json({ message: "Comment deleted successfully" });
   } catch (error) {
     return res
@@ -765,7 +872,98 @@ const deleteComment = async (req, res) => {
   }
 };
 
+const getAttachments = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const task = await prisma.task.findUnique({ where: { id: taskId } });
+    if (!task) return res.status(404).json({ message: "Task not found" });
 
+    const attachments = await prisma.taskAttachment.findMany({
+      where: { taskId },
+      include: {
+        uploadedBy: { select: { id: true, fullName: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return res.status(200).json({ attachments });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to fetch attachments", error: error.message });
+  }
+};
+
+const uploadAttachment = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const uploadedById = req.user.id;
+
+    const task = await prisma.task.findUnique({ where: { id: taskId } });
+    if (!task) {
+      
+      if (req.file) fs.unlink(req.file.path, () => {});
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const BASE_URL = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+    const fileUrl = `${BASE_URL}/uploads/${req.file.filename}`;
+
+    const attachment = await prisma.taskAttachment.create({
+      data: {
+        taskId,
+        uploadedById,
+        fileName: req.file.originalname,
+        fileUrl,
+        mimeType: req.file.mimetype,
+        fileSize: req.file.size,
+      },
+      include: {
+        uploadedBy: { select: { id: true, fullName: true } },
+      },
+    });
+
+    await cacheDel(KEYS.task(taskId));
+
+    return res.status(201).json({ message: "File uploaded successfully", attachment });
+  } catch (error) {
+    if (req.file) fs.unlink(req.file.path, () => {});
+    return res.status(500).json({ message: "Failed to upload attachment", error: error.message });
+  }
+};
+
+const deleteAttachment = async (req, res) => {
+  try {
+    const { taskId, attachmentId } = req.params;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    const attachment = await prisma.taskAttachment.findUnique({
+      where: { id: attachmentId },
+    });
+
+    if (!attachment || attachment.taskId !== taskId) {
+      return res.status(404).json({ message: "Attachment not found" });
+    }
+
+    if (attachment.uploadedById !== userId && userRole !== "ADMIN") {
+      return res.status(403).json({ message: "Not authorized to delete this attachment" });
+    }
+
+    const filePath = path.join(__dirname, "../uploads", path.basename(attachment.fileUrl));
+    fs.unlink(filePath, () => {}); 
+
+    await prisma.taskAttachment.delete({ where: { id: attachmentId } });
+
+    await cacheDel(KEYS.task(taskId));
+
+    return res.status(200).json({ message: "Attachment deleted successfully" });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to delete attachment", error: error.message });
+  }
+};
 
 module.exports = {
   createTask,
@@ -781,4 +979,7 @@ module.exports = {
   getComments,
   addComment,
   deleteComment,
+  getAttachments,
+  uploadAttachment,
+  deleteAttachment,
 };

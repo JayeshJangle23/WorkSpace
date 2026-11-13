@@ -8,6 +8,7 @@ const {
   deleteUser,
   updateRole,
   changeUserPassword,
+  toggleUserStatus,
 } = require("../controllers/userController.js");
 const allowRoles = require("../middleware/roleMiddleware.js");
 const authMiddleware = require("../middleware/authMiddleware.js");
@@ -19,5 +20,6 @@ router.patch("/:userId", authMiddleware, allowRoles("ADMIN"), editUser);
 router.delete("/:userId", authMiddleware, allowRoles("ADMIN"), deleteUser);
 router.patch("/:userId/role", authMiddleware, allowRoles("ADMIN"), updateRole);
 router.patch("/:userId/password", authMiddleware, allowRoles("ADMIN"), changeUserPassword);
+router.patch("/:userId/status", authMiddleware, allowRoles("ADMIN"), toggleUserStatus);
 
 module.exports = router;

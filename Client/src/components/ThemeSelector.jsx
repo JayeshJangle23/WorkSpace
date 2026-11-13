@@ -1,4 +1,3 @@
-
 import { useTheme } from "../context/ThemeContext";
 
 export default function ThemeSelector() {
@@ -33,7 +32,7 @@ export default function ThemeSelector() {
                 transform: active ? "translateY(-2px)" : "none",
               }}
             >
-              {/* Theme preview */}
+              {}
               <div
                 className="rounded-xl p-3 mb-3"
                 style={{
@@ -72,7 +71,7 @@ export default function ThemeSelector() {
                 </div>
               </div>
 
-              {/* Theme details */}
+              {}
               <div className="flex justify-between items-center gap-2">
                 <div>
                   <h3 className="font-bold text-sm text-token">

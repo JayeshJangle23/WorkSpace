@@ -1,4 +1,5 @@
 const prisma = require("../config/db");
+const { cacheGet, cacheSet, cacheDel, cacheDelPattern, TTL, KEYS } = require("../config/redis");
 
 const createTeam = async (req, res) => {
   try {
@@ -28,6 +29,9 @@ const createTeam = async (req, res) => {
       },
     });
 
+    await cacheDelPattern("teams:*");
+    await cacheDelPattern("dashboard:*");
+
     return res.status(201).json({
       message: "Team created successfully",
       team,
@@ -44,9 +48,14 @@ const getTeams = async (req, res) => {
   try {
     const { id: userId, role } = req.user;
 
+    const cacheKey = KEYS.teams(role, userId);
+    const cached = await cacheGet(cacheKey);
+    if (cached) {
+      return res.status(200).json({ teams: cached });
+    }
+
     let where = {};
 
-    // MANAGER: teams they manage + teams they're a member of
     if (role === "MANAGER") {
       where = {
         OR: [
@@ -55,7 +64,7 @@ const getTeams = async (req, res) => {
         ],
       };
     }
-    // EMPLOYEE: only teams they're a member of
+    
     else if (role === "EMPLOYEE") {
       where = {
         members: { some: { userId } },
@@ -81,6 +90,7 @@ const getTeams = async (req, res) => {
       },
     });
 
+    await cacheSet(cacheKey, teams, TTL.TEAMS);
     return res.status(200).json({ teams });
   } catch (error) {
     return res.status(500).json({
@@ -94,6 +104,12 @@ const getTeamById = async (req, res) => {
   try {
     const teamId = req.params.teamId;
     const { role } = req.user;
+
+    const cacheKey = KEYS.team(teamId);
+    const cached = await cacheGet(cacheKey);
+    if (cached) {
+      return res.status(200).json({ team: cached });
+    }
 
     const include = {
       manager: {
@@ -136,6 +152,7 @@ const getTeamById = async (req, res) => {
       });
     }
 
+    await cacheSet(cacheKey, team, TTL.TEAMS);
     return res.status(200).json({ team });
   } catch (error) {
     return res.status(500).json({
@@ -183,6 +200,10 @@ const editTeam = async (req, res) => {
       data,
     });
 
+    await cacheDel(KEYS.team(teamId));
+    await cacheDelPattern("teams:*");
+    await cacheDelPattern("dashboard:*");
+
     return res.status(200).json({
       message: "Team updated successfully",
       team,
@@ -220,6 +241,11 @@ const deleteTeam = async (req, res) => {
         where: { id: teamId },
       });
     });
+
+    await cacheDel(KEYS.team(teamId), KEYS.teamMembers(teamId));
+    await cacheDelPattern("teams:*");
+    await cacheDelPattern("tasks:*");
+    await cacheDelPattern("dashboard:*");
 
     return res.status(200).json({
       message: "Team deleted successfully",
@@ -285,6 +311,10 @@ const createTeamMembers = async (req, res) => {
       },
     });
 
+    await cacheDel(KEYS.team(teamId), KEYS.teamMembers(teamId));
+    await cacheDelPattern("teams:*");
+    await cacheDelPattern("dashboard:*");
+
     return res.status(201).json({
       message: "Team member added successfully",
       teamMember,
@@ -325,6 +355,10 @@ const deleteTeamMember = async (req, res) => {
       },
     });
 
+    await cacheDel(KEYS.team(teamId), KEYS.teamMembers(teamId));
+    await cacheDelPattern("teams:*");
+    await cacheDelPattern("dashboard:*");
+
     return res.status(200).json({
       message: "Team member removed successfully",
     });
@@ -344,6 +378,12 @@ const getTeamMembers = async (req, res) => {
       return res.status(400).json({
         message: "Team ID is required",
       });
+    }
+
+    const cacheKey = KEYS.teamMembers(teamId);
+    const cached = await cacheGet(cacheKey);
+    if (cached) {
+      return res.status(200).json(cached);
     }
 
     const team = await prisma.team.findUnique({
@@ -369,11 +409,14 @@ const getTeamMembers = async (req, res) => {
       },
     });
 
-    return res.status(200).json({
+    const result = {
       message: "Team members fetched successfully",
       count: teamMembers.length,
       members: teamMembers.map((member) => member.user),
-    });
+    };
+
+    await cacheSet(cacheKey, result, TTL.TEAMS);
+    return res.status(200).json(result);
   } catch (error) {
     console.error("Get team members error:", error);
 

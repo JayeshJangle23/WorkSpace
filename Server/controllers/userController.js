@@ -1,6 +1,7 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const prisma = require("../config/db");
+const { cacheGet, cacheSet, cacheDel, cacheDelPattern, TTL, KEYS } = require("../config/redis");
 
 const createUser = async (req, res) => {
   try {
@@ -33,6 +34,9 @@ const createUser = async (req, res) => {
       },
     });
 
+    await cacheDel(KEYS.usersList());
+    await cacheDelPattern("dashboard:*");
+
     const token = jwt.sign(
       {
         id: user.id,
@@ -64,7 +68,14 @@ const createUser = async (req, res) => {
 
 const getUsers = async (req, res) => {
   try {
-  const users = await prisma.user.findMany({
+    
+    const cacheKey = KEYS.usersList();
+    const cached = await cacheGet(cacheKey);
+    if (cached) {
+      return res.status(200).json({ users: cached });
+    }
+
+    const users = await prisma.user.findMany({
       select: {
         id: true,
         fullName: true,
@@ -76,6 +87,7 @@ const getUsers = async (req, res) => {
       },
     });
 
+    await cacheSet(cacheKey, users, TTL.USERS_LIST);
     return res.status(200).json({ users });
   } catch (error) {
     return res.status(500).json({
@@ -144,6 +156,11 @@ const editUser = async (req, res) => {
       data,
     });
 
+    await cacheDel(
+      KEYS.userSession(userId),
+      KEYS.usersList()
+    );
+
     return res.status(200).json({
       message: "User updated successfully",
       user,
@@ -173,6 +190,12 @@ const deleteUser = async (req, res) => {
     await prisma.user.delete({
       where: { id: userId },
     });
+
+    await cacheDel(
+      KEYS.userSession(userId),
+      KEYS.usersList()
+    );
+    await cacheDelPattern("dashboard:*");
 
     return res.status(200).json({
       message: "User deleted successfully",
@@ -210,6 +233,12 @@ const updateRole = async (req, res) => {
       where: { id: userId },
       data: { role },
     });
+
+    await cacheDel(
+      KEYS.userSession(userId),
+      KEYS.usersList()
+    );
+    await cacheDelPattern("dashboard:*");
 
     return res.status(200).json({
       message: "Role updated successfully",
@@ -251,6 +280,8 @@ const changeUserPassword = async (req, res) => {
       data: { passwordHash },
     });
 
+    await cacheDel(KEYS.userSession(userId));
+
     return res.status(200).json({
       message: `Password changed successfully for ${user.fullName}`,
     });
@@ -263,6 +294,34 @@ const changeUserPassword = async (req, res) => {
   }
 };
 
+const toggleUserStatus = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { isActive: !user.isActive },
+      select: { id: true, fullName: true, email: true, role: true, isActive: true },
+    });
+
+    await cacheDel(KEYS.userSession(userId), KEYS.usersList());
+    await cacheDelPattern("dashboard:*");
+
+    return res.status(200).json({
+      message: `User ${updated.isActive ? "activated" : "deactivated"} successfully`,
+      user: updated,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to toggle user status", error: error.message });
+  }
+};
+
 module.exports = {
   createUser,
   getUsers,
@@ -271,4 +330,5 @@ module.exports = {
   deleteUser,
   updateRole,
   changeUserPassword,
+  toggleUserStatus,
 };

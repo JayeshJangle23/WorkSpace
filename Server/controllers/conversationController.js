@@ -1,4 +1,5 @@
 const prisma = require("../config/db");
+const { cacheDel, cacheDelPattern } = require("../config/redis");
 
 const getConversations = async (req, res) => {
   try {
@@ -96,51 +97,6 @@ const createDirectConversation = async (req, res) => {
         .status(400)
         .json({ message: "Cannot create conversation with yourself" });
     }
-
-    // const existing = await prisma.conversation.findFirst({
-    //   where: {
-    //     type: "DIRECT",
-    //     AND: [
-    //       { members: { some: { userId } } },
-    //       { members: { some: { userId: targetUserId } } },
-    //     ],
-    //   },
-    //   include: {
-    //     members: {
-    //       include: {
-    //         user: {
-    //           select: { id: true, fullName: true, email: true, avatarUrl: true },
-    //         },
-    //       },
-    //     },
-    //   },
-    // });
-
-    // const existing = await prisma.conversation.findFirst({
-    //   where: {
-    //     type: "DIRECT",
-    //     members: {
-    //       every: {
-    //         userId: { in: [userId, targetUserId] },
-    //       },
-    //       some: { userId },
-    //     },
-    //   },
-    //   include: {
-    //     members: {
-    //       include: {
-    //         user: {
-    //           select: {
-    //             id: true,
-    //             fullName: true,
-    //             email: true,
-    //             avatarUrl: true,
-    //           },
-    //         },
-    //       },
-    //     },
-    //   },
-    // });
 
     const existing = await prisma.conversation.findFirst({
       where: {
@@ -694,6 +650,49 @@ const markAsRead = async (req, res) => {
   }
 };
 
+const deleteMessage = async (req, res) => {
+  try {
+    const { conversationId, messageId } = req.params;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    const member = await prisma.conversationMember.findUnique({
+      where: { conversationId_userId: { conversationId, userId } },
+    });
+    if (!member) {
+      return res.status(403).json({ message: "You are not a member of this conversation" });
+    }
+
+    const msg = await prisma.message.findUnique({ where: { id: messageId } });
+    if (!msg || msg.conversationId !== conversationId) {
+      return res.status(404).json({ message: "Message not found" });
+    }
+
+    if (msg.senderId !== userId && userRole !== "ADMIN") {
+      return res.status(403).json({ message: "You can only delete your own messages" });
+    }
+
+    await prisma.message.update({
+      where: { id: messageId },
+      data: { deletedAt: new Date() },
+    });
+
+    const io = req.app.get("io");
+    if (io) {
+      io.to(`conversation:${conversationId}`).emit("message:deleted", {
+        messageId,
+        conversationId,
+      });
+    }
+
+    return res.status(200).json({ message: "Message deleted" });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Failed to delete message", error: error.message });
+  }
+};
+
 module.exports = {
   getConversations,
   getUsersForChat,
@@ -707,4 +706,5 @@ module.exports = {
   getMessages,
   sendMessage,
   markAsRead,
+  deleteMessage,
 };

@@ -29,9 +29,8 @@ function AppLayout() {
   const { user } = useAuth();
   const location = useLocation();
 
-  // Desktop: sidebar can be collapsed to icon-only
   const [collapsed, setCollapsed] = useState(false);
-  // Mobile: sidebar is hidden by default, toggled via hamburger
+  
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const closeMobile = () => setMobileOpen(false);
@@ -41,7 +40,7 @@ function AppLayout() {
       className="flex min-h-screen"
       style={{ background: "var(--bg)", color: "var(--text)" }}
     >
-      {/* ── Mobile backdrop overlay ─────────────────────────── */}
+      {}
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
@@ -58,8 +57,8 @@ function AppLayout() {
         )}
       </AnimatePresence>
 
-      {/* ── Sidebar ────────────────────────────────────────── */}
-      {/* Desktop: always visible, collapsible */}
+      {}
+      {}
       <div className="hidden md:flex">
         <Sidebar
           user={user}
@@ -69,7 +68,7 @@ function AppLayout() {
         />
       </div>
 
-      {/* Mobile: fixed drawer, slides in from left */}
+      {}
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
@@ -89,7 +88,7 @@ function AppLayout() {
         )}
       </AnimatePresence>
 
-      {/* ── Main content ───────────────────────────────────── */}
+      {}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Navbar
           onMenuClick={() => setMobileOpen((o) => !o)}

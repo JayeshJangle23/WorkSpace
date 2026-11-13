@@ -20,7 +20,7 @@ export default function AdminDashboard({ data }) {
 
   return (
     <div className="page-pad flex flex-col gap-6">
-      {/* Heading */}
+      {}
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="font-heading text-token page-heading-title font-extrabold tracking-tight m-0 mb-1">Admin Overview</h1>
@@ -29,7 +29,7 @@ export default function AdminDashboard({ data }) {
         <span className="badge badge-role flex-shrink-0">ADMIN</span>
       </div>
 
-      {/* Stats */}
+      {}
       <div className="stats-responsive">
         {cards(stats).map(({ label, value, icon: Icon, color }, i) => (
           <motion.div
@@ -51,9 +51,9 @@ export default function AdminDashboard({ data }) {
         ))}
       </div>
 
-      {/* Recent panels */}
+      {}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Recent users */}
+        {}
         <div className="card p-5">
           <h3 className="text-token text-base font-bold mb-1">Recent Users</h3>
           <p className="text-muted text-xs mb-4">Recently registered workspace members.</p>
@@ -72,7 +72,7 @@ export default function AdminDashboard({ data }) {
           )) : <p className="text-muted text-sm">No recent users.</p>}
         </div>
 
-        {/* Recent tasks */}
+        {}
         <div className="card p-5">
           <h3 className="text-token text-base font-bold mb-1">Recent Tasks</h3>
           <p className="text-muted text-xs mb-4">Latest workspace tasks.</p>
