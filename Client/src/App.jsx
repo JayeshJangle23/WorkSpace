@@ -24,7 +24,6 @@ import Messages from "./pages/Messages";
 import Notifications from "./pages/Notifications.jsx";
 import Settings from "./pages/Settings";
 import { SocketProvider } from "./context/SocketContext.jsx";
-import NotFound from "./pages/NotFound.jsx";
 
 function AppLayout() {
   const { user } = useAuth();
@@ -140,7 +139,7 @@ function AppRoutes() {
       </Route>
 
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="*" element={<NotFound />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }

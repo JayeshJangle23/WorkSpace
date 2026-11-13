@@ -1,5 +1,4 @@
 const prisma = require("../config/db");
-const { logActivity } = require("../utils/activityLogger");
 
 const createTask = async (req, res) => {
   try {

@@ -7,8 +7,9 @@ module.exports = (io) => {
   io.use(socketAuth);
 
   io.on("connection", async (socket) => {
+    // console.log("Socket auth:", socket.handshake.auth);
     const userId = socket.user.id;
-    console.log("User connected:", userId);
+    // console.log("User connected:", userId);
 
     socket.join(`user:${userId}`);
     const existingSocket = onlineUsers.get(userId) || new Set();

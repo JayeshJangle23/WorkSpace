@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  LayoutDashboard, Users, UsersRound, CheckSquare,ArrowLeft,
+  LayoutDashboard, Users, UsersRound, CheckSquare,
   MessageSquare, Bell, Layers, PanelLeftClose, PanelLeft,
 } from "lucide-react";
 
@@ -21,7 +21,7 @@ export default function Sidebar({ user, collapsed, setCollapsed, onNavClick }) {
     <motion.aside
       animate={{ width: collapsed ? 72 : 260 }}
       transition={{ duration: 0.22 }}
-      className="sticky top-0 flex flex-col h-screen self-start flex-shrink-0"
+      className="flex flex-col h-screen md:h-screen flex-shrink-0"
       style={{
         background: "var(--sidebar)",
         borderRight: "1px solid var(--border)",
@@ -30,54 +30,8 @@ export default function Sidebar({ user, collapsed, setCollapsed, onNavClick }) {
         overflow: "hidden",
       }}
     >
-
-      {/* Brand + Mobile Back Button */}
-<div
-  className="flex items-center justify-between gap-3 px-4 py-5 overflow-hidden flex-shrink-0"
-  style={{ borderBottom: "1px solid var(--border)" }}
->
-  {/* Brand */}
-  <div className="flex items-center gap-3 min-w-0">
-    <div
-      className="w-9 h-9 rounded-xl grid place-items-center flex-shrink-0"
-      style={{
-        background: "var(--gradient)",
-        color: "#fff",
-        boxShadow: "0 4px 12px rgba(124,58,237,.35)",
-      }}
-    >
-      <Layers size={20} />
-    </div>
-
-    {!collapsed && (
-      <span
-        className="font-extrabold tracking-tight whitespace-nowrap text-[17px]"
-        style={{
-          fontFamily: "var(--font-heading)",
-          color: "var(--text)",
-        }}
-      >
-        WorkSpace
-      </span>
-    )}
-  </div>
-
-  {/* Mobile Back Button */}
-  <button
-    onClick={onNavClick}
-    className="md:hidden flex-shrink-0 p-2 rounded-lg transition-colors"
-    style={{
-      color: "var(--text)",
-      background: "var(--surface-2)",
-    }}
-    aria-label="Close sidebar"
-  >
-    <ArrowLeft size={20} />
-  </button>
-</div>
-
       {/* ── Brand ───────────────────────────────────────────── */}
-      {/* <div
+      <div
         className="flex items-center gap-3 px-4 py-5 overflow-hidden flex-shrink-0"
         style={{ borderBottom: "1px solid var(--border)" }}
       >
@@ -95,7 +49,7 @@ export default function Sidebar({ user, collapsed, setCollapsed, onNavClick }) {
             WorkSpace
           </span>
         )}
-      </div> */}
+      </div>
 
       <div className="px-2 pt-3 pb-1 hidden md:block flex-shrink-0">
         <button
